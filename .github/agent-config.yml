@@ -1,0 +1,159 @@
+# ============================================================
+# Agent Pipeline Configuration
+# ============================================================
+# All agents read paths exclusively from this file.
+# To restructure the project, change values here only.
+# Agents never hardcode paths — they resolve everything
+# from the keys below.
+# ============================================================
+
+# ----------------------------------------------------------
+# BASE PATHS
+# ----------------------------------------------------------
+base:
+  project_root: "."                          # Root of the repository
+  source_main: "src/main/java"               # Production source root
+  source_test: "src/test/java"               # Test source root
+  source_test_resources: "src/test/resources"
+  source_main_resources: "src/main/resources"
+  build_output: "target"                     # Maven build output (ephemeral)
+
+# ----------------------------------------------------------
+# TICKETS
+# ----------------------------------------------------------
+tickets:
+  root: "tickets"                            # tickets/{TICKET_ID}/
+  # Sub-folders created per ticket (relative to tickets/{TICKET_ID}/)
+  subfolders:
+    context_file: "ticket-context.md"
+    locks: ".locks"
+    architecture: "architecture"
+    implementation: "implementation"
+    test_reports: "test-reports"
+    review_reports: "review-reports"
+    bugfix_reports: "bugfix-reports"
+  # Key artifact filenames (relative to their subfolder or ticket root)
+  artifacts:
+    architecture_decision: "architecture-decision.md"
+    files_changed: "files-changed.md"
+    implementation_notes: "implementation-notes.md"
+    test_report: "run-{N}-report.md"         # {N} replaced at runtime
+    review_report: "run-{N}-review.md"
+    bugfix_report: "run-{N}-bugfix.md"
+    loop_state: "loop-state.md"              # Loop tracker state file (ticket root)
+
+# ----------------------------------------------------------
+# GITHUB / AGENT INFRASTRUCTURE
+# ----------------------------------------------------------
+github:
+  root: ".github"
+  agents: ".github/agents"
+  behaviours: ".github/behaviours"
+  skills: ".github/skills"
+  requirements: ".github/requirements"
+  document_templates: ".github/document-templates"
+  logs:
+    root: ".github/logs"
+    master_agent_log: ".github/logs/master-agent-log.md"
+    config_change_log: ".github/logs/configuration-change-log.md"
+    persistent_issues_log: ".github/logs/persistent-issues-log.md"
+
+# ----------------------------------------------------------
+# ARCHITECTURE OUTPUT (global / full-system)
+# ----------------------------------------------------------
+architecture:
+  global_docs: "documentation/architecture_document"   # Full-system architecture output
+  diagram_extension: ".mmd"
+
+# ----------------------------------------------------------
+# CODE GENERATION BASE PATH
+# ----------------------------------------------------------
+# Override source_main here if generated code goes somewhere
+# other than src/main/java (e.g. a monorepo module path).
+# Agents use codegen.base as the root for all file creation.
+codegen:
+  base: "src/main/java"                      # Where backend agent writes code
+  package_root: "com/project"               # Default package path — override per project
+
+# ----------------------------------------------------------
+# TEST GENERATION BASE PATH
+# ----------------------------------------------------------
+testgen:
+  base: "src/test/java"                      # Where unit test agent writes tests
+  resources: "src/test/resources"
+  report_root: "target/surefire-reports"     # Maven surefire output (read-only)
+  coverage_report: "target/site/jacoco/jacoco.xml"  # JaCoCo output (read-only)
+  convenience_report: "TEST_REPORT.md"       # Root-level convenience copy
+
+# ----------------------------------------------------------
+# LOCK FILE NAMES (relative to tickets/{TICKET_ID}/.locks/)
+# ----------------------------------------------------------
+locks:
+  architecture: "architecture.lock"
+  implementation: "implementation.lock"
+  tests: "tests.lock"
+  review: "review.lock"
+  bugfix: "bugfix.lock"
+  refactor: "refactor.lock"
+  orchestrator: "orchestrator.lock"
+  stale_threshold_minutes: 30
+
+# ----------------------------------------------------------
+# LOOP CONTROL
+# ----------------------------------------------------------
+loop:
+  max_runs: 10                               # Hard ceiling on review loop iterations
+  persistent_issue_threshold: 3             # Consecutive runs before escalation
+
+# ----------------------------------------------------------
+# JIRA & GIT BRANCH MAPPING
+# ----------------------------------------------------------
+# Maps Jira project keys to team prefixes used in branch naming.
+# The orchestrator (Stage 0.5) uses this to validate PREFIX input
+# and auto-suggest based on ticket ID.
+jira:
+  project_to_team_prefix:
+    AIS: AIS                                 # AIS team tickets
+    EXE: EXE                                 # Execution team tickets
+    CVS: CVS                                 # CVS team tickets
+    FE: FE                                   # Frontend team tickets
+  # Valid team prefixes (used in branch names: feature/{PREFIX}-{TICKET_ID})
+  valid_prefixes:
+    - AIS
+    - EXE
+    - CVS
+    - FE
+
+# ----------------------------------------------------------
+# PROTECTED CONFIG FILE PATTERNS
+# ----------------------------------------------------------
+# Agents check files against these patterns before writing.
+# Any match triggers the config-permission flow.
+# NOTE: Patterns are matched against relative paths from project root.
+# Do NOT use overly broad patterns that match build output (target/).
+config_guard:
+  patterns:
+    - "pom.xml"
+    - "**/pom.xml"
+    - "checkstyle.xml"
+    - "logback*.xml"
+    - "web.xml"
+    - "persistence.xml"
+    - "beans.xml"
+    - "*.yml"
+    - "*.yaml"
+    - "*.env"
+    - "*.env.*"
+    - "*.toml"
+    - "*.properties"
+    - "*.config.js"
+    - "*.config.ts"
+    - "*.config.json"
+    - "application*.*"
+    - "docker-compose*"
+    - "Dockerfile"
+    - "*.gradle"
+    - "*.gradle.kts"
+    - ".gitignore"
+    - ".gitlab-ci.yml"
+    - ".github/workflows/**"

@@ -1,0 +1,13 @@
+package com.epam.executionEngineService;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class ExecutionEngineServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(ExecutionEngineServiceApplication.class, args);
+    }
+
+}

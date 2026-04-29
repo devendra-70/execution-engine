@@ -1,4 +1,4 @@
-# CodeVal Setup Guide
+# Execution Engine Service Setup Guide
 
 Follow these steps to clone and run the project.
 
@@ -30,7 +30,7 @@ Login to MySQL and create the database:
 
 ```sql
 
-CREATE DATABASE codeval;
+CREATE DATABASE execution_engine_db;
 
 ```
 
@@ -42,7 +42,7 @@ Clone the repository:
 
 git clone <repository-url>
 
-cd codeval\codeval-service
+cd execution-engine\execution-engine-service
 
 ```
 

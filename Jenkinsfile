@@ -38,7 +38,7 @@ pipeline {
     environment {
         // ── SonarQube ─────────────────────────────────────────────────────────
         SONAR_HOST_URL  = 'https://sonarhyd.epam.com'
-        SONAR_TOKEN     = credentials('team2-sonar-token')
+        SONAR_TOKEN     = credentials('java-team2-sonar-token')
         JACOCO_XML_PATH = 'executionEngine-service/target/site/jacoco/jacoco.xml'
 
         // ── AWS / ECS (Common) ────────────────────────────────────────────────

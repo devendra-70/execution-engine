@@ -195,11 +195,12 @@ invoking that agent for the fix — don't try to do the fix yourself:
 
 | Finding area | Delegate to |
 |---|---|
-| Broken approval/rejection atomicity, race conditions | `@workflow-business-logic` |
-| Missing auth check / role / IDOR | `@auth-security` |
-| Entity design, missing index, N+1 | `@database-schema` |
-| REST contract, DTO shape, HTTP status | `@backend-api` |
-| Missing test for changed code | `@testing` |
+| Broken approval/rejection atomicity, race conditions | `@architecture-agent` |
+| Missing auth check / role / IDOR | `@backend-implementation-agent` |
+| Entity design, missing index, N+1 | `@code-refactor-agent` |
+| REST contract, DTO shape, HTTP status | `@backend-implementation-agent` |
+| Missing test for changed code | `@unit-test-agent` |
+| Bugs, defects, or incorrect behavior | `@bugfix-agent` |
 
 ## Example (abbreviated)
 

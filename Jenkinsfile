@@ -10,11 +10,6 @@ pipeline {
         skipDefaultCheckout(true)
     }
 
-    tools {
-        maven 'Maven 3.9.8'
-        jdk   'JDK-21'
-    }
-
     parameters {
         // ── CI Stage Toggles ──────────────────────────────────────────────────
         booleanParam(name: 'RUN_UNIT_TESTS',        defaultValue: true,  description: 'Run Unit Tests (JUnit 5 + Mockito)')
@@ -43,8 +38,8 @@ pipeline {
     environment {
         // ── SonarQube ─────────────────────────────────────────────────────────
         SONAR_HOST_URL  = 'https://sonarhyd.epam.com'
-        SONAR_TOKEN     = credentials('jenkins-plus-aws')
-        JACOCO_XML_PATH = 'codeval-service/target/site/jacoco/jacoco.xml'
+        SONAR_TOKEN     = credentials('Sonar-Muzammil')
+        JACOCO_XML_PATH = 'executionEngine-service/target/site/jacoco/jacoco.xml'
 
         // ── AWS / ECS ─────────────────────────────────────────────────────────
         AWS_REGION         = 'ap-south-1'
@@ -111,9 +106,9 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
-                        sh 'cd codeval-service && mvn -B compile'
+                        sh 'cd executionEngine-service && ./mvnw -B compile'
                     } else {
-                        bat 'cd codeval-service && mvn -B compile'
+                        bat 'cd executionEngine-service && mvnw.cmd -B compile'
                     }
                 }
             }
@@ -127,15 +122,15 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
-                        sh 'cd codeval-service && mvn -B test'
+                        sh 'cd executionEngine-service && ./mvnw -B test'
                     } else {
-                        bat 'cd codeval-service && mvn -B test'
+                        bat 'cd executionEngine-service && mvnw.cmd -B test'
                     }
                 }
             }
             post {
                 always {
-                    junit testResults: 'codeval-service/**/target/surefire-reports/*.xml',
+                    junit testResults: 'executionEngine-service/**/target/surefire-reports/*.xml',
                           allowEmptyResults: true
                 }
             }
@@ -158,15 +153,15 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
-                        sh 'cd codeval-service && mvn -B verify -P integration-tests'
+                        sh 'cd executionEngine-service && ./mvnw -B verify -P integration-tests'
                     } else {
-                        bat 'cd codeval-service && mvn -B verify -P integration-tests'
+                        bat 'cd executionEngine-service && mvnw.cmd -B verify -P integration-tests'
                     }
                 }
             }
             post {
                 always {
-                    junit testResults: 'codeval-service/**/target/failsafe-reports/*.xml',
+                    junit testResults: 'executionEngine-service/**/target/failsafe-reports/*.xml',
                           allowEmptyResults: true
                 }
             }
@@ -180,9 +175,9 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
-                        sh 'cd codeval-service && mvn -B verify jacoco:report'
+                        sh 'cd executionEngine-service && ./mvnw -B verify jacoco:report'
                     } else {
-                        bat 'cd codeval-service && mvn -B verify jacoco:report'
+                        bat 'cd executionEngine-service && mvnw.cmd -B verify jacoco:report'
                     }
                 }
             }
@@ -201,12 +196,12 @@ pipeline {
                         echo "⚠️ WARNING: RUN_COVERAGE is false — coverage will be 0% in SonarQube"
                     }
                 }
-                withCredentials([string(credentialsId: 'jenkins-plus-aws', variable: 'SONAR_TOKEN')]) {
+                withCredentials([string(credentialsId: 'Sonar-Muzammil', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('SonarHyd') {
                         script {
                             if (isUnix()) {
                                 sh """
-                                    cd codeval-service && mvn -B sonar:sonar \\
+                                    cd executionEngine-service && ./mvnw -B sonar:sonar \\
                                       -Dsonar.projectKey=${params.SONAR_PROJECT_KEY} \\
                                       -Dsonar.host.url=${SONAR_HOST_URL} \\
                                       -Dsonar.token=${SONAR_TOKEN} \\
@@ -214,7 +209,7 @@ pipeline {
                                 """
                             } else {
                                 bat """
-                                    cd codeval-service && mvn -B sonar:sonar ^
+                                    cd executionEngine-service && mvnw.cmd -B sonar:sonar ^
                                       -Dsonar.projectKey=${params.SONAR_PROJECT_KEY} ^
                                       -Dsonar.host.url=${SONAR_HOST_URL} ^
                                       -Dsonar.token=%SONAR_TOKEN% ^
@@ -249,15 +244,15 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
-                        sh 'cd codeval-service && mvn -B package -DskipTests'
+                        sh 'cd executionEngine-service && ./mvnw -B package -DskipTests'
                     } else {
-                        bat 'cd codeval-service && mvn -B package -DskipTests'
+                        bat 'cd executionEngine-service && mvnw.cmd -B package -DskipTests'
                     }
                 }
             }
             post {
                 success {
-                    archiveArtifacts artifacts: 'codeval-service/target/*.jar', fingerprint: true
+                    archiveArtifacts artifacts: 'executionEngine-service/target/*.jar', fingerprint: true
                 }
             }
         }
@@ -268,7 +263,7 @@ pipeline {
                 expression { return params.RUN_COVERAGE }
             }
             steps {
-                archiveArtifacts artifacts: 'codeval-service/target/site/jacoco/**',
+                archiveArtifacts artifacts: 'executionEngine-service/target/site/jacoco/**',
                                  fingerprint: true
             }
         }
@@ -288,7 +283,7 @@ pipeline {
             }
             steps {
                 sh '''
-                chmod +x mvnw
+                chmod +x executionEngine-service/mvnw
                 docker build -t my-app:$IMAGE_TAG .
                 '''
             }

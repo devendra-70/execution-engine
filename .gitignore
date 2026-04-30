@@ -10,6 +10,10 @@ build/
 # Logs
 *.log
 
+/github/logs/
+tickets/
+projects/
+
 # OS
 .DS_Store
 Thumbs.db

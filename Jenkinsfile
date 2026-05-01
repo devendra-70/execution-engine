@@ -17,7 +17,7 @@ pipeline {
     parameters {
         string(
             name:         'SONAR_PROJECT_KEY',
-            defaultValue: 'EPM-ICMP-JAN-2026-JAVA-TEAM1',
+            defaultValue: 'EPM-ICMP-JAN-2026-JAVA-TEAM2',
             description:  'SonarQube project key'
         )
     }
@@ -76,7 +76,7 @@ pipeline {
         // Expects the coverage stage to run first so jacoco.xml exists.
         stage('SonarQube Analysis') {
             steps {
-                withCredentials([string(credentialsId: 'Animesh-sonar-token', variable: 'SONAR_TOKEN')]) {
+                withCredentials([string(credentialsId: 'team2-sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('SonarHyd') {
                         sh """
                             cd executionEngine-service && ./mvnw -B sonar:sonar \\

@@ -76,7 +76,7 @@ pipeline {
         // Expects the coverage stage to run first so jacoco.xml exists.
         stage('SonarQube Analysis') {
             steps {
-                withCredentials([string(credentialsId: 'team2-sonar-token', variable: 'SONAR_TOKEN')]) {
+                withCredentials([string(credentialsId: 'java-team2-sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('SonarHyd') {
                         sh """
                             cd executionEngine-service && ./mvnw -B sonar:sonar \\

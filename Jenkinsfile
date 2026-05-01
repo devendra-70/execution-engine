@@ -25,7 +25,7 @@ pipeline {
     environment {
         // ── SonarQube ─────────────────────────────────────────────────────────
         SONAR_HOST_URL  = 'https://sonarhyd.epam.com'
-        JACOCO_XML_PATH = 'codeval-service/target/site/jacoco/jacoco.xml'
+        JACOCO_XML_PATH = 'executionEngine-service/target/site/jacoco/jacoco.xml'
     }
 
     stages {
@@ -41,25 +41,25 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'cd codeval-service && chmod +x mvnw'
+                sh 'cd executionEngine-service && chmod +x mvnw'
             }
         }
 
         // ── Stage 3: Compile ──────────────────────────────────────────────────
         stage('Compile') {
             steps {
-                sh 'cd codeval-service && ./mvnw -B compile'
+                sh 'cd executionEngine-service && ./mvnw -B compile'
             }
         }
 
         // ── Stage 4: Unit Tests ───────────────────────────────────────────────
         stage('Unit Tests') {
             steps {
-                sh 'cd codeval-service && ./mvnw -B test'
+                sh 'cd executionEngine-service && ./mvnw -B test'
             }
             post {
                 always {
-                    junit testResults: 'codeval-service/**/target/surefire-reports/*.xml',
+                    junit testResults: 'executionEngine-service/**/target/surefire-reports/*.xml',
                           allowEmptyResults: true
                 }
             }
@@ -68,7 +68,7 @@ pipeline {
         // ── Stage 5: Code Coverage (JaCoCo) ──────────────────────────────────
         stage('Code Coverage') {
             steps {
-                sh 'cd codeval-service && ./mvnw -B verify'
+                sh 'cd executionEngine-service && ./mvnw -B verify'
             }
         }
 
@@ -79,7 +79,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'Animesh-sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('SonarHyd') {
                         sh """
-                            cd codeval-service && ./mvnw -B sonar:sonar \\
+                            cd executionEngine-service && ./mvnw -B sonar:sonar \\
                               -Dsonar.projectKey=${params.SONAR_PROJECT_KEY} \\
                               -Dsonar.host.url=${SONAR_HOST_URL} \\
                               -Dsonar.token=${SONAR_TOKEN} \\

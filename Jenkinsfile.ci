@@ -1,0 +1,184 @@
+pipeline {
+    agent { label 'linux' }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        skipDefaultCheckout(true)
+    }
+
+    tools {
+        jdk 'JDK-21'
+    }
+
+    parameters {
+        string(
+            name:         'SONAR_PROJECT_KEY',
+            defaultValue: 'EPM-ICMP-JAN-2026-JAVA-TEAM2',
+            description:  'SonarQube project key'
+        )
+    }
+
+    environment {
+        AWS_REGION = 'ap-south-1'
+        AWS_DEFAULT_REGION = 'ap-south-1'
+        ACCOUNT_ID = '169984788524'
+        ECR_REPO   = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/my-app"
+
+        SONAR_HOST_URL  = 'https://sonarhyd.epam.com'
+        JACOCO_XML_PATH = 'target/site/jacoco/jacoco.xml'
+    }
+
+    stages {
+
+        // ── Stage 1: Clean Workspace ─────────────────────────
+        stage('Clean Workspace') {
+            steps { cleanWs() }
+        }
+
+        // ── Stage 2: Checkout ─────────────────────────
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'cd executionEngine-service && chmod +x mvnw'
+            }
+        }
+
+        // ── Stage 3: Compile ─────────────────────────
+        stage('Compile') {
+            steps {
+                sh 'cd executionEngine-service && ./mvnw -B compile'
+            }
+        }
+
+        // ── Stage 4: Unit Tests ─────────────────────────
+        stage('Unit Tests') {
+            steps {
+                sh 'cd executionEngine-service && ./mvnw -B test'
+            }
+            post {
+                always {
+                    junit testResults: 'executionEngine-service/**/target/surefire-reports/*.xml',
+                        allowEmptyResults: true
+                }
+            }
+        }
+
+        // ── Stage 5: Code Coverage (JaCoCo) ─────────────────────────
+        stage('Code Coverage') {
+            steps {
+                sh 'cd executionEngine-service && ./mvnw -B verify'
+            }
+        }
+
+        // ── Stage 6: SonarQube Analysis ─────────────────────────
+        // Expects the coverage stage to run first so jacoco.xml exists.
+        stage('SonarQube Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'java-team2-sonar-token', variable: 'SONAR_TOKEN')]) {
+                    withSonarQubeEnv('SonarHyd') {
+                        sh """
+                        cd executionEngine-service && ./mvnw -B sonar:sonar \
+                        -Dsonar.projectKey=${params.SONAR_PROJECT_KEY} \
+                        -Dsonar.host.url=${SONAR_HOST_URL} \
+                        -Dsonar.token=${SONAR_TOKEN} \
+                        -Dsonar.coverage.jacoco.xmlReportPaths=${JACOCO_XML_PATH}
+                        """
+                    }
+                }
+            }
+        }
+
+        // ── Stage 7: Quality Gate ─────────────────────────
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        // ── Stage 8: Docker Build & Push ─────────────────────────
+        stage('Build & Push Docker Image') {
+            when {
+                anyOf {
+                    branch 'develop'
+                    expression { env.BRANCH_NAME.startsWith('release/') }
+                }
+            }
+            steps {
+                script {
+                    env.IMAGE_TAG = env.GIT_COMMIT.take(7)
+                }
+
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
+                    sh """
+                    aws ecr get-login-password --region $AWS_REGION \
+                    | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+                    docker build -t my-app:$IMAGE_TAG .
+
+                    docker tag my-app:$IMAGE_TAG $ECR_REPO:commit-$IMAGE_TAG
+                    docker push $ECR_REPO:commit-$IMAGE_TAG
+                    """
+                }
+            }
+        }
+
+        // ── Stage 9: Tag release images ─────────────────────────
+        stage('Tag Release Image') {
+            when {
+                expression { env.BRANCH_NAME.startsWith('release/') }
+            }
+            steps {
+                script {
+                    if (!env.IMAGE_TAG) {
+                        error("IMAGE_TAG is not set — Build & Push stage may have been skipped")
+                    }
+                    env.RELEASE_VERSION = env.BRANCH_NAME.replace("release/", "")
+                }
+
+                sh """
+                docker tag $ECR_REPO:commit-$IMAGE_TAG $ECR_REPO:release-${RELEASE_VERSION}
+                docker push $ECR_REPO:release-${RELEASE_VERSION}
+                """
+            }
+        }
+
+        // ── Stage 10: Trigger CD ─────────────────────────
+        stage('Trigger CD - DEV') {
+            when { branch 'develop' }
+            steps {
+                build job: 'cd-pipeline', parameters: [
+                    string(name: 'ENV', value: 'dev'),
+                    string(name: 'IMAGE_TAG', value: "commit-${IMAGE_TAG}")
+                ]
+            }
+        }
+
+        stage('Trigger CD - QA') {
+            when {
+                expression { env.BRANCH_NAME.startsWith('release/') }
+            }
+            steps {
+                build job: 'cd-pipeline', parameters: [
+                    string(name: 'ENV', value: 'qa'),
+                    string(name: 'IMAGE_TAG', value: "release-${RELEASE_VERSION}")
+                ]
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ CI successful — Branch: ${env.BRANCH_NAME} | Build: #${env.BUILD_NUMBER}"
+        }
+        failure {
+            echo "❌ Pipeline failed — Branch: ${env.BRANCH_NAME} | Build: #${env.BUILD_NUMBER}"
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

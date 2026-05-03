@@ -1,0 +1,127 @@
+pipeline {
+    agent { label 'linux' }
+
+    parameters {
+        choice(name: 'ENV', choices: ['dev', 'qa'])
+        string(name: 'IMAGE_TAG')
+    }
+
+    environment {
+        AWS_REGION = 'ap-south-1'
+        CLUSTER_NAME = 'my-ecs-cluster'
+
+        // Services per environment
+        DEV_SERVICE = 'my-app-dev'
+        QA_SERVICE  = 'my-app-qa'
+
+        TASK_FAMILY = 'my-app-task'
+        CONTAINER_NAME = 'my-app'
+
+        ACCOUNT_ID = '169984788524'
+        ECR_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/my-app"
+
+        DEV_ALB_URL = 'http://<dev-load-balancer-url>'
+        QA_ALB_URL  = 'http://<qa-load-balancer-url>'
+    }
+
+    stages {
+
+        // ── Select Service ─────────────────────────
+        stage('Select Environment') {
+            steps {
+                script {
+                    if (params.ENV == 'dev') {
+                        env.SERVICE_NAME = env.DEV_SERVICE
+                        env.SPRING_PROFILE = 'dev'
+                    } else {
+                        env.SERVICE_NAME = env.QA_SERVICE
+                        env.SPRING_PROFILE = 'qa'
+                    }
+                }
+            }
+        }
+
+        // ── Update Task Definition ─────────────────────────
+        stage('Register New Task Definition') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
+                    script {
+
+                        def imageUri = "${ECR_REPO}:${params.IMAGE_TAG}"
+
+                        sh """
+                        aws ecs describe-task-definition \
+                            --task-definition ${TASK_FAMILY} \
+                            --query taskDefinition > task-def.json
+                        """
+
+                        sh """
+                        cat task-def.json | jq '
+                            .containerDefinitions[0].image = "${imageUri}" |
+                            .containerDefinitions[0].environment = [
+                              {"name":"SPRING_PROFILES_ACTIVE","value":"${SPRING_PROFILE}"}
+                            ] |
+                            del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+                        ' > new-task-def.json
+                        """
+
+                        env.NEW_TASK_DEF_ARN = sh(
+                            script: """aws ecs register-task-definition \
+                                --cli-input-json file://new-task-def.json \
+                                --query 'taskDefinition.taskDefinitionArn' \
+                                --output text""",
+                            returnStdout: true
+                        ).trim()
+                    }
+                }
+            }
+        }
+
+        // ── Deploy to ECS ─────────────────────────
+        stage('Update Service') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
+                    sh """
+                    aws ecs update-service \\
+                      --cluster ${CLUSTER_NAME} \\
+                      --service ${SERVICE_NAME} \\
+                      --task-definition ${NEW_TASK_DEF_ARN} \\
+                      --force-new-deployment
+                    """
+                }
+            }
+        }
+
+        // ── Wait for Stability ─────────────────────────
+        stage('Wait for Deployment') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
+                    sh """
+                    aws ecs wait services-stable \\
+                      --cluster ${CLUSTER_NAME} \\
+                      --services ${SERVICE_NAME}
+                    """
+                }
+            }
+        }
+
+        // ── Smoke Test DEV ─────────────────────────
+        stage('Smoke Test (DEV)') {
+            when { expression { params.ENV == 'dev' } }
+            steps {
+                sh "curl -f ${DEV_ALB_URL}/actuator/health"
+            }
+        }
+
+        // ── Trigger QA Tests ─────────────────────────
+        stage('Trigger QA Pipeline') {
+            when { expression { params.ENV == 'qa' } }
+            steps {
+                build job: 'qa-pipeline', parameters: [
+                    string(name: 'BASE_URL', value: "${QA_ALB_URL}"),
+                    string(name: 'IMAGE_TAG', value: params.IMAGE_TAG)
+                ]
+            }
+        }
+    }
+}

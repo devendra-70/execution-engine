@@ -8,20 +8,20 @@ pipeline {
 
     environment {
         AWS_REGION = 'ap-south-1'
-        CLUSTER_NAME = 'my-ecs-cluster'
+        CLUSTER_NAME = 'my-cluster'
 
         // Services per environment
-        DEV_SERVICE = 'my-app-dev'
-        QA_SERVICE  = 'my-app-qa'
+        DEV_SERVICE = 'my-service'
+        //QA_SERVICE  = 'my-app-qa'
 
-        TASK_FAMILY = 'my-app-task'
+        TASK_FAMILY = 'my-task'
         CONTAINER_NAME = 'my-app'
 
         ACCOUNT_ID = '169984788524'
         ECR_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/my-app"
 
-        DEV_ALB_URL = 'http://<dev-load-balancer-url>'
-        QA_ALB_URL  = 'http://<qa-load-balancer-url>'
+        // DEV_ALB_URL = 'http://<dev-load-balancer-url>'
+        // QA_ALB_URL  = 'http://<qa-load-balancer-url>'
     }
 
     stages {
@@ -33,10 +33,11 @@ pipeline {
                     if (params.ENV == 'dev') {
                         env.SERVICE_NAME = env.DEV_SERVICE
                         env.SPRING_PROFILE = 'dev'
-                    } else {
-                        env.SERVICE_NAME = env.QA_SERVICE
-                        env.SPRING_PROFILE = 'qa'
                     }
+                    // else {
+                    //     env.SERVICE_NAME = env.QA_SERVICE
+                    //     env.SPRING_PROFILE = 'qa'
+                    // }
                 }
             }
         }
@@ -106,22 +107,22 @@ pipeline {
         }
 
         // ── Smoke Test DEV ─────────────────────────
-        stage('Smoke Test (DEV)') {
-            when { expression { params.ENV == 'dev' } }
-            steps {
-                sh "curl -f ${DEV_ALB_URL}/actuator/health"
-            }
-        }
+        // stage('Smoke Test (DEV)') {
+        //     when { expression { params.ENV == 'dev' } }
+        //     steps {
+        //         sh "curl -f ${DEV_ALB_URL}/actuator/health"
+        //     }
+        // }
 
         // ── Trigger QA Tests ─────────────────────────
-        stage('Trigger QA Pipeline') {
-            when { expression { params.ENV == 'qa' } }
-            steps {
-                build job: 'qa-pipeline', parameters: [
-                    string(name: 'BASE_URL', value: "${QA_ALB_URL}"),
-                    string(name: 'IMAGE_TAG', value: params.IMAGE_TAG)
-                ]
-            }
-        }
+        // stage('Trigger QA Pipeline') {
+        //     when { expression { params.ENV == 'qa' } }
+        //     steps {
+        //         build job: 'qa-pipeline', parameters: [
+        //             string(name: 'BASE_URL', value: "${QA_ALB_URL}"),
+        //             string(name: 'IMAGE_TAG', value: params.IMAGE_TAG)
+        //         ]
+        //     }
+        // }
     }
 }

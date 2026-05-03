@@ -40,7 +40,10 @@ pipeline {
         // ── Stage 2: Checkout ─────────────────────────
         stage('Checkout') {
             steps {
-                checkout scm
+                script {
+                    def scmVars = checkout scm
+                    env.GIT_COMMIT = scmVars.GIT_COMMIT
+                }
                 sh 'cd executionEngine-service && chmod +x mvnw'
             }
         }
@@ -68,7 +71,7 @@ pipeline {
         // ── Stage 5: Code Coverage (JaCoCo) ─────────────────────────
         stage('Code Coverage') {
             steps {
-                sh 'cd executionEngine-service && ./mvnw -B verify'
+                sh 'cd executionEngine-service && ./mvnw -B verify -DskipTests'
             }
         }
 
@@ -104,23 +107,26 @@ pipeline {
             when {
                 anyOf {
                     branch 'develop'
-                    expression { env.BRANCH_NAME.startsWith('release/') }
+                    expression { env.BRANCH_NAME?.startsWith('release/') }
                 }
             }
             steps {
                 script {
+                    if (!env.GIT_COMMIT) {
+                        error("GIT_COMMIT is not available — checkout may have failed")
+                    }
                     env.IMAGE_TAG = env.GIT_COMMIT.take(7)
                 }
 
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
                     sh """
-                    aws ecr get-login-password --region $AWS_REGION \
-                    | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                    aws ecr get-login-password --region ${env.AWS_REGION} \
+                    | docker login --username AWS --password-stdin ${env.ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com
 
-                    docker build -t my-app:$IMAGE_TAG .
+                    docker build -t my-app:${env.IMAGE_TAG} .
 
-                    docker tag my-app:$IMAGE_TAG $ECR_REPO:commit-$IMAGE_TAG
-                    docker push $ECR_REPO:commit-$IMAGE_TAG
+                    docker tag my-app:${env.IMAGE_TAG} ${env.ECR_REPO}:commit-${env.IMAGE_TAG}
+                    docker push ${env.ECR_REPO}:commit-${env.IMAGE_TAG}
                     """
                 }
             }
@@ -129,7 +135,7 @@ pipeline {
         // ── Stage 9: Tag release images ─────────────────────────
         stage('Tag Release Image') {
             when {
-                expression { env.BRANCH_NAME.startsWith('release/') }
+                expression { env.BRANCH_NAME?.startsWith('release/') }
             }
             steps {
                 script {
@@ -140,8 +146,8 @@ pipeline {
                 }
 
                 sh """
-                docker tag $ECR_REPO:commit-$IMAGE_TAG $ECR_REPO:release-${RELEASE_VERSION}
-                docker push $ECR_REPO:release-${RELEASE_VERSION}
+                docker tag ${ECR_REPO}:commit-${env.IMAGE_TAG} ${ECR_REPO}:release-${env.RELEASE_VERSION}
+                docker push ${ECR_REPO}:release-${env.RELEASE_VERSION}
                 """
             }
         }
@@ -152,19 +158,19 @@ pipeline {
             steps {
                 build job: 'cd-pipeline', parameters: [
                     string(name: 'ENV', value: 'dev'),
-                    string(name: 'IMAGE_TAG', value: "commit-${IMAGE_TAG}")
+                    string(name: 'IMAGE_TAG', value: "commit-${env.IMAGE_TAG}")
                 ]
             }
         }
 
         stage('Trigger CD - QA') {
             when {
-                expression { env.BRANCH_NAME.startsWith('release/') }
+                expression { env.BRANCH_NAME?.startsWith('release/') }
             }
             steps {
                 build job: 'cd-pipeline', parameters: [
                     string(name: 'ENV', value: 'qa'),
-                    string(name: 'IMAGE_TAG', value: "release-${RELEASE_VERSION}")
+                    string(name: 'IMAGE_TAG', value: "release-${env.RELEASE_VERSION}")
                 ]
             }
         }

@@ -8,6 +8,7 @@ pipeline {
 
     environment {
         AWS_REGION = 'ap-south-1'
+        AWS_DEFAULT_REGION = 'ap-south-1'
         CLUSTER_NAME = 'my-cluster'
 
         // Services per environment

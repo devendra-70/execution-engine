@@ -15,7 +15,7 @@ pipeline {
         //QA_SERVICE  = 'my-app-qa'
 
         TASK_FAMILY = 'my-task'
-        CONTAINER_NAME = 'my-app'
+        // CONTAINER_NAME = 'my-app'
 
         ACCOUNT_ID = '169984788524'
         ECR_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/my-app"

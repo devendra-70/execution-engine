@@ -163,17 +163,17 @@ pipeline {
             }
         }
 
-        // stage('Trigger CD - QA') {
-        //     when {
-        //         expression { env.BRANCH_NAME?.startsWith('release/') }
-        //     }
-        //     steps {
-        //         build job: 'cd-pipeline', parameters: [
-        //             string(name: 'ENV', value: 'qa'),
-        //             string(name: 'IMAGE_TAG', value: "release-${env.RELEASE_VERSION}")
-        //         ]
-        //     }
-        // }
+        stage('Trigger CD - QA') {
+            when {
+                expression { env.BRANCH_NAME?.startsWith('release/') }
+            }
+            steps {
+                build job: 'EPM-ICMP/EPM-ICMP-JAN2026/EMPICMP-JAVA/EMPICMP-JAVA-TEAM2/EPM-CES-cd-pipeline', parameters: [
+                    string(name: 'ENV', value: 'qa'),
+                    string(name: 'IMAGE_TAG', value: "release-${env.RELEASE_VERSION}")
+                ]
+            }
+        }
     }
 
     post {

@@ -81,7 +81,7 @@ pipeline {
         // ── Deploy to ECS ─────────────────────────
         stage('Update Service') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-DEP-team2-creds']]) {
                     sh """
                     aws ecs update-service \\
                       --cluster ${CLUSTER_NAME} \\
@@ -96,7 +96,7 @@ pipeline {
         // ── Wait for Stability ─────────────────────────
         stage('Wait for Deployment') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-DEP-team2-creds']]) {
                     sh """
                     aws ecs wait services-stable \\
                       --cluster ${CLUSTER_NAME} \\

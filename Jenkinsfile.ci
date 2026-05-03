@@ -118,7 +118,7 @@ pipeline {
                     env.IMAGE_TAG = env.GIT_COMMIT.take(7)
                 }
 
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-DEP-team2-creds']]) {
                     sh """
                     aws ecr get-login-password --region ${env.AWS_REGION} \
                     | docker login --username AWS --password-stdin ${env.ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com

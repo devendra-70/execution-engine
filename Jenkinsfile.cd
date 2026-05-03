@@ -45,7 +45,7 @@ pipeline {
         // ── Update Task Definition ─────────────────────────
         stage('Register New Task Definition') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-DEP-team2-creds']]) {
                     script {
 
                         def imageUri = "${ECR_REPO}:${params.IMAGE_TAG}"

@@ -32,7 +32,7 @@ pipeline {
             when {
                 anyOf {
                     branch 'develop'
-                    expression { env.BRANCH_NAME.startsWith('release/') }
+                    expression { env.BRANCH_NAME != null && env.BRANCH_NAME.startsWith('release/') }
                 }
             }
             steps {
@@ -54,7 +54,7 @@ pipeline {
             when {
                 anyOf {
                     branch 'develop'
-                    expression { env.BRANCH_NAME.startsWith('release/') }
+                    expression { env.BRANCH_NAME != null && env.BRANCH_NAME.startsWith('release/') }
                 }
             }
             steps {
@@ -96,7 +96,7 @@ pipeline {
             when {
                 anyOf {
                     branch 'develop'
-                    expression { env.BRANCH_NAME.startsWith('release/') }
+                    expression { env.BRANCH_NAME != null && env.BRANCH_NAME.startsWith('release/') }
                 }
             }
             steps {
@@ -117,7 +117,7 @@ pipeline {
             when {
                 anyOf {
                     branch 'develop'
-                    expression { env.BRANCH_NAME.startsWith('release/') }
+                    expression { env.BRANCH_NAME != null && env.BRANCH_NAME.startsWith('release/') }
                 }
             }
             steps {

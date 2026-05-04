@@ -29,6 +29,12 @@ pipeline {
 
         // ── Select Service ─────────────────────────
         stage('Select Environment') {
+            when {
+                anyOf {
+                    branch 'develop'
+                    expression { env.BRANCH_NAME.startsWith('release/') }
+                }
+            }
             steps {
                 script {
                     if (params.ENV == 'dev') {
@@ -45,6 +51,12 @@ pipeline {
 
         // ── Update Task Definition ─────────────────────────
         stage('Register New Task Definition') {
+            when {
+                anyOf {
+                    branch 'develop'
+                    expression { env.BRANCH_NAME.startsWith('release/') }
+                }
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-DEP-team2-creds']]) {
                     script {
@@ -81,6 +93,12 @@ pipeline {
 
         // ── Deploy to ECS ─────────────────────────
         stage('Update Service') {
+            when {
+                anyOf {
+                    branch 'develop'
+                    expression { env.BRANCH_NAME.startsWith('release/') }
+                }
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-DEP-team2-creds']]) {
                     sh """
@@ -96,6 +114,12 @@ pipeline {
 
         // ── Wait for Stability ─────────────────────────
         stage('Wait for Deployment') {
+            when {
+                anyOf {
+                    branch 'develop'
+                    expression { env.BRANCH_NAME.startsWith('release/') }
+                }
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-DEP-team2-creds']]) {
                     sh """

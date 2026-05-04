@@ -107,7 +107,7 @@ pipeline {
                             --cluster ${CLUSTER_NAME} \\
                             --services ${SERVICE_NAME} \\
                             --region ${AWS_REGION} \\
-                            --query 'services[0].deployments[?status==\`PRIMARY\`].rolloutState' \\
+                            --query "services[0].deployments[?status=='PRIMARY'].rolloutState" \\
                             --output text)
                         echo "Rollout state: \$STATE (elapsed: \${ELAPSED}s)"
                         if [ "\$STATE" = "COMPLETED" ]; then

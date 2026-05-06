@@ -62,7 +62,7 @@ github:
 # ARCHITECTURE OUTPUT (global / full-system)
 # ----------------------------------------------------------
 architecture:
-  global_docs: "documentation/architecture_document"   # Full-system architecture output
+  global_docs: "documents/architecture_document"   # Full-system architecture output
   diagram_extension: ".mmd"
 
 # ----------------------------------------------------------

@@ -115,13 +115,13 @@ Respond to the following commands:
 ### File Output Rules:
 - Output MUST be in markdown format
 - File path:
-  /documentation/architecture_document/<file-name>-<version>.md
+  /documents/architecture_document/<file-name>-<version>.md
  
 - Replace <file-name> with kebab-case name of file
 - Replace <version> with version number (v1, v2, etc.)
  
 Example:
-  /documentation/architecture_document/user_management_architecture-v1.md
+  /documents/architecture_document/user_management_architecture-v1.md
  
 ---
  

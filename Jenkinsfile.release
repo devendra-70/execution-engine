@@ -1,0 +1,114 @@
+pipeline {
+    agent { label 'linux' }
+
+    triggers {
+        // Every Wednesday at 10:00 AM
+        cron('0 10 * * 3')
+    }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        skipDefaultCheckout(true)
+    }
+
+    environment {
+        GIT_REPO_URL = scm.userRemoteConfigs[0].url
+    }
+
+    stages {
+
+        // ── Stage 1: Checkout develop ─────────────────────────
+        stage('Checkout develop') {
+            steps {
+                cleanWs()
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: 'origin/develop']],
+                    userRemoteConfigs: scm.userRemoteConfigs
+                ])
+            }
+        }
+
+        // ── Stage 2: Check for new commits ─────────────────────────
+        stage('Check for New Commits') {
+            steps {
+                script {
+                    // Find the most recent release branch
+                    def lastRelease = sh(
+                        script: "git branch -r --list 'origin/release/*' --sort=-creatordate | head -1 | xargs",
+                        returnStdout: true
+                    ).trim()
+
+                    if (lastRelease) {
+                        def newCommits = sh(
+                            script: "git log ${lastRelease}..origin/develop --oneline | wc -l",
+                            returnStdout: true
+                        ).trim().toInteger()
+
+                        if (newCommits == 0) {
+                            echo "No new commits on develop since ${lastRelease}. Skipping release."
+                            env.SKIP_RELEASE = 'true'
+                        } else {
+                            echo "Found ${newCommits} new commit(s) since ${lastRelease}. Proceeding with release."
+                            env.SKIP_RELEASE = 'false'
+                        }
+                    } else {
+                        echo "No previous release branch found. Creating first release."
+                        env.SKIP_RELEASE = 'false'
+                    }
+                }
+            }
+        }
+
+        // ── Stage 3: Create release branch ─────────────────────────
+        stage('Create Release Branch') {
+            when { expression { env.SKIP_RELEASE != 'true' } }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'git-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                    script {
+                        // Date-based version: YYYY.MM.DD
+                        def today = new Date().format('yyyy.MM.dd')
+                        env.RELEASE_VERSION = today
+                        def branchName = "release/${today}"
+
+                        // Check if branch already exists (e.g., manual re-run on same day)
+                        def exists = sh(
+                            script: "git ls-remote --heads origin ${branchName} | wc -l",
+                            returnStdout: true
+                        ).trim().toInteger()
+
+                        if (exists > 0) {
+                            echo "Branch ${branchName} already exists. Skipping."
+                            env.SKIP_RELEASE = 'true'
+                        } else {
+                            sh """
+                            git checkout -b ${branchName}
+                            git push https://${GIT_USER}:${GIT_TOKEN}@\$(echo ${GIT_REPO_URL} | sed 's|https://||') ${branchName}
+                            """
+                            echo "Created and pushed branch: ${branchName}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                if (env.SKIP_RELEASE == 'true') {
+                    echo "ℹ️ Release skipped — no new commits or branch already exists."
+                } else {
+                    echo "✅ Release branch release/${env.RELEASE_VERSION} created. CI pipeline will handle build & deploy to QA."
+                }
+            }
+        }
+        failure {
+            echo "❌ Release pipeline failed — Build: #${env.BUILD_NUMBER}"
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

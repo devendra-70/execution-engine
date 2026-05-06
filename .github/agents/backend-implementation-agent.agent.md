@@ -53,6 +53,46 @@ Never mix responsibilities.
 - **`config-permission.behaviour.md`** — Gate all config file changes (pom.xml, application.properties, etc.) through orchestrator approval
 
 ---
+### Project Structure (MANDATORY)
+
+Strictly adhere to the following project structure when generating files:
+```
+execution-engine-service/
+├── pom.xml
+└── src/main/java/com/project
+    ├── controller/
+    ├── service/
+    ├── service/concreteService/
+    ├── repository/
+    ├── model/
+    ├── dto/
+    ├── config/
+    ├── exception/
+└── README.md
+```
+ 
+---
+
+## 📋 Mandatory Standards Reference
+
+Before `/approve` execution:
+
+1. **Read** `.github/instructions/java-instructions.md` (ALL 9 gates)
+2. **Apply** every BLOCKING gate during code generation
+3. **Recommend** SUGGESTION gates where appropriate
+
+All generated code MUST comply with:
+- **Gate 1**: Java 21 Language Features (Records, Pattern Matching, Virtual Threads)
+- **Gate 2**: Immutability & Functional Style (Optional, final fields, Streams)
+- **Gate 3**: Naming Conventions (Google Java Style)
+- **Gate 4**: Bug Patterns (resource management, null safety, comparisons)
+- **Gate 5**: Code Smells (method length, complexity, duplicates)
+- **Gate 6**: Concurrency Safety (thread-safe collections, no raw ThreadLocal)
+- **Gate 7**: Security (no hardcoded credentials, SQL injection prevention)
+- **Gate 8**: Testing (testable architecture, JUnit 5)
+- **Gate 9**: Javadoc & Comments (public API documentation)
+
+---
 
 ## Input
 
@@ -121,23 +161,6 @@ When `/approve` is invoked:
 - Use correct package structure
 - Create PRODUCTION code only
 
-### Project Structure (MANDATORY)
-
-```
-backend/
-├── pom.xml
-└── src/main/java/com/project/
-    ├── controller/
-    ├── service/
-    ├── service/concreteService/
-    ├── repository/
-    ├── model/
-    ├── dto/
-    ├── config/
-    ├── exception/
-└── README.md
-```
- 
 ---
 
 ## 📄 File Creation Rules
@@ -276,19 +299,83 @@ openapi.description=<Short description>
 | MapStruct | DTO mapping — compile-time only |
  
 ---
+## 📊 Comprehensive Quality Gate
 
-## 📊 Quality Gate
+This agent validates code against BOTH immediate implementation requirements AND the full 9-gate framework from `.github/instructions/java-instructions.md`.
 
-| Check | Requirement |
-|---|---|
-| No business logic in controllers | MANDATORY |
-| Loose coupling | MANDATORY |
-| High cohesion | MANDATORY |
-| Testable code | Clean architecture enables testing — agent does NOT generate tests |
-| All public REST endpoints documented | MANDATORY — `@Operation` + `@ApiResponse` on every endpoint |
-| All DTOs have `@Schema` on fields | MANDATORY |
-| OpenAPI endpoint accessible | `/swagger-ui.html` reachable after build |
- 
+### Tier 1: Architectural Quality (Immediate Implementation)
+
+| Check | Requirement | Severity |
+|---|---|---|
+| No business logic in controllers | All business logic in service layer only | BLOCKING |
+| Loose coupling | Services depend on interfaces, not implementations | BLOCKING |
+| High cohesion | Classes have single responsibility (SOLID) | BLOCKING |
+| All public REST endpoints documented | Every endpoint must have `@Operation` + `@ApiResponse` | BLOCKING |
+| All DTOs have `@Schema` on fields | Every DTO field annotated with description & example | BLOCKING |
+| OpenAPI endpoint accessible | `/swagger-ui.html` reachable after startup | BLOCKING |
+| Testable code (SOLID) | Clean architecture enables unit testing | BLOCKING |
+
+---
+
+### Tier 2: Java 21 & Code Quality (9-Gate Framework from java-instructions.md)
+
+| Gate | Key BLOCKING Rules | Validation |
+|---|---|---|
+| **Gate 1: Java 21 Features** | • All DTOs must be `record` types (not classes with getters)<br>• Pattern matching in `instanceof` (no manual casts)<br>• Pattern matching in `switch` (not if-else chains)<br>• Virtual Threads for I/O (not fixed-size thread pools) | ✓ Every DTO is `record`<br>✓ No `instanceof` followed by manual cast<br>✓ No traditional `switch` statements with types<br>✓ Thread pools use `newVirtualThreadPerTaskExecutor()` |
+| **Gate 2: Immutability & Functional Style** | • Immutable collections: `List.of()`, `Set.of()`, `Map.of()`<br>• `Optional<T>` for all nullable returns (never `null`)<br>• All fields declared `final`<br>• Stream API for collection transforms | ✓ No `new ArrayList()` for constants<br>✓ No `null` returns — use `Optional` chains<br>✓ All fields `final` (enforce at compile-time)<br>✓ No loops — use `.stream().map()...toList()` |
+| **Gate 3: Naming (Google Java Style)** | • Classes: `UpperCamelCase` nouns (e.g., `UserService`)<br>• Methods: `lowerCamelCase` verbs (e.g., `getUserById`)<br>• Constants: `UPPER_SNAKE_CASE` (e.g., `MAX_RETRY_COUNT`)<br>• No abbreviations (`id`, `url`, `dto` OK; `usr`, `mgr` not OK)<br>• Booleans: `is`, `has`, `can` prefixes (e.g., `isActive`) | ✓ Validate all class/method/variable names before file creation |
+| **Gate 4: Bug Patterns** | • Try-with-resources for all I/O (streams, connections)<br>• `.equals()` not `==` for object comparison<br>• No null dereferences (guard all nullable values)<br>• `@NonNull` parameter enforcement at call sites | ✓ Every `InputStream`, `Connection`, file closed properly<br>✓ String comparisons use `.equals()`<br>✓ All nullable values guarded or wrapped in `Optional`<br>✓ No `null` passed to `@NonNull` parameters |
+| **Gate 5: Code Smells** | • ≤5 parameters per method (else: use config record)<br>• No 5+ line code duplication<br>• Cognitive complexity ≤15 (no deep nesting)<br>• No empty `catch` blocks (must log or rethrow)<br>• Methods ≤40 lines (extract smaller units) | ✓ Refactor any method >5 params before generation<br>✓ Extract duplicated code to private methods<br>✓ Simplify nested if/for/switch chains<br>✓ All catch blocks have logging or rethrow<br>✓ Break long methods into testable units |
+| **Gate 6: Concurrency Safety** | • `ConcurrentHashMap` for shared mutable state<br>• `DateTimeFormatter` not `SimpleDateFormat` as field<br>• No `ThreadLocal` (use `ScopedValue` for virtual threads)<br>• Thread pools must be Virtual for I/O | ✓ All shared collections are thread-safe<br>✓ Date formatting uses immutable formatter<br>✓ No `ThreadLocal` fields<br>✓ I/O thread pools use virtual threads |
+| **Gate 7: Security** | • No hardcoded credentials (password, secret, token, apiKey)<br>• SQL: use `PreparedStatement` with `?` (never string concat)<br>• Logging: SLF4J (`log.info()`) not `System.out`<br>• Random: `SecureRandom` for tokens/session IDs | ✓ Scan for `password`, `secret`, `token`, `apiKey` strings<br>✓ All JDBC queries use prepared statements<br>✓ All output uses SLF4J logger<br>✓ Security-sensitive random uses `SecureRandom` |
+| **Gate 8: Testing** | • Code is testable (loose coupling, dependency injection)<br>• No hard dependencies (all @Autowired or injected)<br>• Setup supports unit tests (mock-friendly architecture) | ✓ No `new Service()` in code — all injected<br>✓ No static dependencies (use interfaces)<br>✓ Architecture works with `@ExtendWith(MockitoExtension)` |
+| **Gate 9: Javadoc** | • All `public` methods have Javadoc<br>• `@param`, `@return`, `@throws` documented<br>• Comments explain **why**, not **what**<br>• `TODO`/`FIXME` reference ticket (e.g., `// TODO EXE-123:`) | ✓ Every public method has Javadoc<br>✓ No redundant comments<br>✓ All TODOs have ticket references |
+
+---
+
+### Pre-Approval Validation Checklist
+
+Before executing `/approve`, verify ALL of the following:
+
+**Tier 1 (Architectural)**
+- [ ] No business logic in controllers
+- [ ] Services use interfaces (loose coupling)
+- [ ] Every endpoint has `@Operation` + `@ApiResponse`
+- [ ] Every DTO field has `@Schema(description, example)`
+- [ ] Code follows SOLID principles
+
+**Tier 2 (Java 21 + Quality)**
+- [ ] All DTOs are `record` types (Gate 1.1)
+- [ ] All instanceof/switch use pattern matching (Gates 1.3–1.4)
+- [ ] All immutable collections use `List.of()` (Gate 2.1)
+- [ ] No `null` returns — all use `Optional<T>` (Gate 2.2)
+- [ ] All fields are `final` (Gate 2.3)
+- [ ] Naming follows Google Java Style (Gate 3)
+- [ ] No try-with-resources violations (Gate 4)
+- [ ] No method has >5 parameters (Gate 5)
+- [ ] No cognitive complexity >15 (Gate 5)
+- [ ] Thread pools use Virtual Threads for I/O (Gates 1.6, 6)
+- [ ] No `System.out` — all use SLF4J (Gate 7)
+- [ ] All `public` methods have Javadoc (Gate 9)
+
+**If any check fails** → STOP and ask human to clarify architecture or provide REVISE instructions before generating code.
+
+---
+
+### Quality Gate Decision Logic
+
+IF (Tier 1 FAILS on any BLOCKING item)
+→ REJECT: "Architecture violates clean code principles"
+
+ELSE IF (Tier 2 FAILS on any BLOCKING item)
+→ REJECT: "Code violates java-instructions.md gates"
+
+ELSE IF (all TIER 1 + TIER 2 BLOCKING items PASS)
+→ APPROVE: Generate files
+
+ELSE (only SUGGESTION items fail)
+→ WARN: "Consider addressing suggestions" (optional review after generation)
+
 ---
 
 ## 📦 CI/CD Contract

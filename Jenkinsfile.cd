@@ -13,10 +13,10 @@ pipeline {
 
         // Services per environment
         DEV_SERVICE = 'my-service'
-        //QA_SERVICE  = 'my-app-qa'
+        QA_SERVICE  = 'my-service'
 
         TASK_FAMILY = 'my-task'
-        // CONTAINER_NAME = 'my-app'
+        CONTAINER_NAME = 'my-app'
 
         ACCOUNT_ID = '169984788524'
         ECR_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/my-app"
@@ -29,22 +29,29 @@ pipeline {
 
         // ── Select Service ─────────────────────────
         stage('Select Environment') {
+            when {
+                anyOf {
+                    branch 'develop'
+                    expression { env.BRANCH_NAME != null && env.BRANCH_NAME.startsWith('release/') }
+                }
+            }
             steps {
                 script {
                     if (params.ENV == 'dev') {
                         env.SERVICE_NAME = env.DEV_SERVICE
                         env.SPRING_PROFILE = 'dev'
                     }
-                    // else {
-                    //     env.SERVICE_NAME = env.QA_SERVICE
-                    //     env.SPRING_PROFILE = 'qa'
-                    // }
+                    else {
+                        env.SERVICE_NAME = env.QA_SERVICE
+                        env.SPRING_PROFILE = 'qa'
+                    }
                 }
             }
         }
 
         // ── Update Task Definition ─────────────────────────
         stage('Register New Task Definition') {
+        
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-DEP-team2-creds']]) {
                     script {
@@ -81,6 +88,7 @@ pipeline {
 
         // ── Deploy to ECS ─────────────────────────
         stage('Update Service') {
+            
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-DEP-team2-creds']]) {
                     sh """
@@ -96,36 +104,18 @@ pipeline {
 
         // ── Wait for Stability ─────────────────────────
         stage('Wait for Deployment') {
+            
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-DEP-team2-creds']]) {
                     sh """
-                    TIMEOUT=900
-                    INTERVAL=20
-                    ELAPSED=0
-                    while [ \$ELAPSED -lt \$TIMEOUT ]; do
-                        STATE=\$(aws ecs describe-services \\
-                            --cluster ${CLUSTER_NAME} \\
-                            --services ${SERVICE_NAME} \\
-                            --region ${AWS_REGION} \\
-                            --query "services[0].deployments[?status=='PRIMARY'].rolloutState" \\
-                            --output text)
-                        echo "Rollout state: \$STATE (elapsed: \${ELAPSED}s)"
-                        if [ "\$STATE" = "COMPLETED" ]; then
-                            echo "Deployment stable."
-                            exit 0
-                        elif [ "\$STATE" = "FAILED" ]; then
-                            echo "Deployment failed - circuit breaker may have rolled back."
-                            exit 1
-                        fi
-                        sleep \$INTERVAL
-                        ELAPSED=\$(( ELAPSED + INTERVAL ))
-                    done
-                    echo "Timed out waiting for deployment after \${TIMEOUT}s"
-                    exit 1
+                    aws ecs wait services-stable \\
+                      --cluster ${CLUSTER_NAME} \\
+                      --services ${SERVICE_NAME}
                     """
                 }
             }
         }
+
 
         // ── Smoke Test DEV ─────────────────────────
         // stage('Smoke Test (DEV)') {

@@ -1,4 +1,4 @@
-package com.epam;
+package com.epam.execution_engine_service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

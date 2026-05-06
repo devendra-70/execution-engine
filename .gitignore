@@ -14,6 +14,8 @@ build/
 tickets/
 projects/
 
+documents/architecture_document/*
+
 # OS
 .DS_Store
 Thumbs.db

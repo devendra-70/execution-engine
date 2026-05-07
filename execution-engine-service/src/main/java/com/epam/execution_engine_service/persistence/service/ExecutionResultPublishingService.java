@@ -16,6 +16,10 @@ import java.util.concurrent.TimeUnit;
  * Service for publishing execution results to Redis KV and Pub/Sub.
  * Implements SRS §8 Redis design patterns for caching and real-time notifications.
  *
+ * Non-transactional publish to Redis after database persistence.
+ * Redis publishes are best-effort only - failures do not trigger rollback.
+ * If Redis is unavailable, the persistence operation succeeds anyway (SRS §8).
+ *
  * Non-blocking operations: failures logged but do NOT propagate to caller.
  * Thread-safe: RedisTemplate is thread-safe; ObjectMapper is stateless.
  *
@@ -25,15 +29,49 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ExecutionResultPublishingService {
 
     private final RedisTemplate<String, String> redisTemplate;
     private final ResultMapper resultMapper;
     private final ObjectMapper objectMapper;
+    private final Long statusTtlSeconds;
 
-    @Value("${app.redis.status-ttl-seconds:600}")
-    private Long statusTtlSeconds;
+    /**
+     * Constructor with explicit dependency injection.
+     * statusTtlSeconds defaults to 600 seconds if not configured.
+     * @param redisTemplate Redis template for KV and Pub/Sub operations
+     * @param resultMapper Mapper for entity-to-event conversion
+     * @param objectMapper Jackson mapper for JSON serialization
+     * @param statusTtlSeconds TTL in seconds for Redis execution status cache (from app.redis.status-ttl-seconds property)
+     */
+    public ExecutionResultPublishingService(
+            RedisTemplate<String, String> redisTemplate,
+            ResultMapper resultMapper,
+            ObjectMapper objectMapper,
+            @Value("${app.redis.status-ttl-seconds:600}") Long statusTtlSeconds) {
+        this.redisTemplate = redisTemplate;
+        this.resultMapper = resultMapper;
+        this.objectMapper = objectMapper;
+        // Null-safe: use default 600 if not injected (e.g., in unit tests without Spring context)
+        this.statusTtlSeconds = statusTtlSeconds != null ? statusTtlSeconds : 600L;
+    }
+
+    /**
+     * Redis key pattern for execution status caching.
+     * Used by: publishExecutionResult(), getExecutionResult(), clearExecutionResult()
+     */
+    private static final String REDIS_STATUS_KEY_PATTERN = "execution:status:%s";
+
+    /**
+     * Generates Redis cache key for execution status.
+     * Centralizes key pattern logic for maintainability.
+     *
+     * @param executionId UUID of the execution
+     * @return Redis key string
+     */
+    private String getStatusKey(java.util.UUID executionId) {
+        return String.format(REDIS_STATUS_KEY_PATTERN, executionId);
+    }
 
     /**
      * Publishes execution result to Redis cache and pub/sub (SRS §8, EPMICMPCOD-462).
@@ -62,7 +100,7 @@ public class ExecutionResultPublishingService {
             final String jsonPayload = objectMapper.writeValueAsString(event);
 
             // 1. Write to KV cache with TTL
-            final String cacheKey = String.format("execution:status:%s", entity.getExecutionId());
+            final String cacheKey = getStatusKey(entity.getExecutionId());
             redisTemplate.opsForValue().set(
                 cacheKey,
                 jsonPayload,
@@ -98,7 +136,7 @@ public class ExecutionResultPublishingService {
         }
 
         try {
-            final String cacheKey = String.format("execution:status:%s", executionId);
+            final String cacheKey = getStatusKey(executionId);
             final String jsonPayload = redisTemplate.opsForValue().get(cacheKey);
 
             if (jsonPayload == null) {
@@ -131,7 +169,7 @@ public class ExecutionResultPublishingService {
         }
 
         try {
-            final String cacheKey = String.format("execution:status:%s", executionId);
+            final String cacheKey = getStatusKey(executionId);
             final Boolean deleted = redisTemplate.delete(cacheKey);
 
             log.debug("Cleared execution result from Redis cache for executionId: {} (deleted: {})",

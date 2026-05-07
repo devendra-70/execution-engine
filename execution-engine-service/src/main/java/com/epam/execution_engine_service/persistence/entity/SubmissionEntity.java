@@ -157,6 +157,25 @@ public class SubmissionEntity {
     private List<SubmissionTestResultEntity> testResults = new ArrayList<>();
 
     /**
+     * Returns an unmodifiable view of the test results list.
+     * Prevents external callers from corrupting entity state via list modifications.
+     *
+     * @return immutable list of SubmissionTestResultEntity
+     */
+    public List<SubmissionTestResultEntity> getTestResults() {
+        return java.util.Collections.unmodifiableList(testResults);
+    }
+
+    /**
+     * Sets the test results list. Used internally by Hibernate and mapper.
+     *
+     * @param testResults list to set
+     */
+    public void setTestResults(List<SubmissionTestResultEntity> testResults) {
+        this.testResults = testResults != null ? testResults : new ArrayList<>();
+    }
+
+    /**
      * JPA lifecycle hook: set createdAt on insert and updatedAt on insert/update.
      */
     @PrePersist

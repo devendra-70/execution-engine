@@ -9,16 +9,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -47,7 +46,6 @@ class ExecutionResultPublishingServiceTest {
     @Mock
     private ObjectMapper objectMapper;
 
-    @InjectMocks
     private ExecutionResultPublishingService service;
 
     private SubmissionEntity entity;
@@ -57,6 +55,9 @@ class ExecutionResultPublishingServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         executionId = UUID.randomUUID();
+
+        // Create service with explicit TTL value (600 seconds, matching app.redis.status-ttl-seconds default)
+        service = new ExecutionResultPublishingService(redisTemplate, resultMapper, objectMapper, 600L);
 
         // Build SubmissionEntity (passed to service)
         entity = SubmissionEntity.builder()
@@ -89,9 +90,9 @@ class ExecutionResultPublishingServiceTest {
             .testResults(new ArrayList<>())
             .build();
 
-        when(redisTemplate.opsForValue()).thenReturn(valueOps);
-        when(resultMapper.toExecutionResultEvent(any(SubmissionEntity.class))).thenReturn(event);
-        when(objectMapper.writeValueAsString(any())).thenReturn("{\"status\":\"COMPLETED\"}");
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        lenient().when(resultMapper.toExecutionResultEvent(any(SubmissionEntity.class))).thenReturn(event);
+        lenient().when(objectMapper.writeValueAsString(any())).thenReturn("{\"status\":\"COMPLETED\"}");
     }
 
     @Nested
@@ -109,7 +110,8 @@ class ExecutionResultPublishingServiceTest {
             verify(valueOps).set(
                 eq(expectedKey),
                 any(String.class),
-                any(Duration.class)
+                anyLong(),
+                eq(TimeUnit.SECONDS)
             );
         }
 
@@ -123,7 +125,8 @@ class ExecutionResultPublishingServiceTest {
             verify(valueOps).set(
                 anyString(),
                 anyString(),
-                any(Duration.class)
+                eq(600L),
+                eq(TimeUnit.SECONDS)
             );
         }
 
@@ -211,7 +214,7 @@ class ExecutionResultPublishingServiceTest {
         void testPublishExecutionCompletion_redisErrorHandled() throws Exception {
             // Arrange
             doThrow(new RuntimeException("Redis connection failed"))
-                .when(valueOps).set(anyString(), anyString(), any(Duration.class));
+                .when(valueOps).set(anyString(), anyString(), anyLong(), any(TimeUnit.class));
 
             // Act - should not rethrow
             assertDoesNotThrow(() -> service.publishExecutionResult(entity));

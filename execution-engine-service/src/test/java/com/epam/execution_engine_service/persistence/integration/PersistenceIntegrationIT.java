@@ -10,6 +10,7 @@ import com.epam.execution_engine_service.persistence.service.ExecutionResultPers
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -41,11 +42,12 @@ import static org.assertj.core.api.Assertions.*;
  * @since 2026-05-07
  */
 @DisplayName("Persistence Integration Tests with TestContainers")
+@Tag("integration")
 @Testcontainers
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-public class PersistenceIntegrationTest {
+public class PersistenceIntegrationIT {
 
     @Container
     public static PostgreSQLContainer<?> postgres =

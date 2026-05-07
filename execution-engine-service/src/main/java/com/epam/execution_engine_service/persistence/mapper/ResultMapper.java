@@ -31,6 +31,9 @@ public class ResultMapper {
         if (event == null) {
             throw new IllegalArgumentException("ExecutionResultEvent cannot be null");
         }
+        if (event.getExecutionId() == null) {
+            throw new IllegalArgumentException("ExecutionId cannot be null");
+        }
 
         // Build test results first (cascaded children)
         final List<SubmissionTestResultEntity> testResults =

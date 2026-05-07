@@ -100,12 +100,13 @@ public class SubmissionTestResultEntity {
 
     /**
      * Many-to-One relationship to parent SubmissionEntity.
+     * Bidirectional mapping: synchronized with SubmissionEntity.testResults via cascading operations.
      * Lazy fetch by default; loaded only when accessed.
+     * Inverse side of the relationship (parent controls updates via mappedBy).
      */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
         name = "execution_id",
-        referencedColumnName = "execution_id",
         insertable = false,
         updatable = false,
         foreignKey = @ForeignKey(name = "fk_submission_test_results_execution")

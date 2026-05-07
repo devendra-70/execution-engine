@@ -19,8 +19,8 @@
     </parent>
 
     <modules>
-        <module>executionEngine-service</module>
-        <module>executionEngine-service-qa</module>
+        <module>execution-engine-service</module>
+        <module>execution-engine-service-qa</module>
     </modules>
 
     <properties>

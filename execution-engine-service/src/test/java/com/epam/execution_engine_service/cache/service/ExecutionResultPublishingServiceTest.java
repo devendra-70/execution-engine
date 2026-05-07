@@ -6,6 +6,7 @@ import com.epam.execution_engine_service.persistence.mapper.ResultMapper;
 import com.epam.execution_engine_service.persistence.service.ExecutionResultPublishingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,11 @@ import static org.mockito.Mockito.*;
  * Covers Redis KV cache, Pub/Sub publishing, and error handling.
  *
  * Test cases: 16+
+ * 
+ * DISABLED: Legacy test class superseded by equivalent tests in persistence.service package.
+ * See: ExecutionResultPublishingServiceTest in com.epam.execution_engine_service.persistence.service
  */
+@Disabled("Legacy tests superseded by persistence package tests")
 @DisplayName("ExecutionResultPublishingService Tests")
 @ExtendWith(MockitoExtension.class)
 class ExecutionResultPublishingServiceTest {

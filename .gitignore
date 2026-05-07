@@ -17,6 +17,7 @@ projects/
 documents/SRS.md
 
 documents/architecture_document/*
+REFACTOR_REPORT.md
 
 # OS
 .DS_Store

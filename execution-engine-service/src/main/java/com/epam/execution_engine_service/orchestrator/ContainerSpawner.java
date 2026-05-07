@@ -6,8 +6,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -59,6 +62,7 @@ public class ContainerSpawner {
         logger.info("Spawning sandbox container with code ({} bytes), timeout: {} seconds", 
                     code.length(), timeoutSeconds);
         
+        Process process = null;
         try {
             List<String> dockerCmd = buildDockerCommand(code);
             
@@ -66,23 +70,34 @@ public class ContainerSpawner {
             
             ProcessBuilder pb = new ProcessBuilder(dockerCmd);
             pb.redirectErrorStream(true);
-            Process process = pb.start();
+            process = pb.start();
             
-            // Capture output
+            // Capture output with proper resource management
             StringBuilder output = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            try (InputStreamReader isr = new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8);
+                 BufferedReader reader = new BufferedReader(isr)) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     output.append(line).append("\n");
                 }
+            } catch (IOException e) {
+                logger.warn("Failed to read container output stream", e);
+                // Continue with partial output captured so far
             }
             
             // Wait for completion with timeout
             boolean completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             
             if (!completed) {
+                logger.warn("Container execution timeout after {} seconds, terminating forcibly", timeoutSeconds);
                 process.destroyForcibly();
-                logger.warn("Container execution timeout after {} seconds", timeoutSeconds);
+                // Give it a brief moment to terminate
+                try {
+                    process.waitFor(1, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    logger.warn("Interrupted while waiting for process termination", e);
+                    Thread.currentThread().interrupt();
+                }
                 return ContainerExecutionResult.timeout(output.toString(), timeoutSeconds);
             }
             
@@ -91,9 +106,23 @@ public class ContainerSpawner {
             
             return ContainerExecutionResult.success(output.toString(), exitCode);
             
+        } catch (InterruptedException e) {
+            logger.error("Container spawning interrupted", e);
+            if (process != null) {
+                process.destroyForcibly();
+            }
+            Thread.currentThread().interrupt();
+            return ContainerExecutionResult.error("Container execution interrupted: " + e.getMessage());
         } catch (Exception e) {
-            logger.error("Container spawning failed", e);
-            return ContainerExecutionResult.error(e.getMessage());
+            logger.error("Container spawning failed with unexpected error", e);
+            if (process != null) {
+                try {
+                    process.destroyForcibly();
+                } catch (Exception destroyError) {
+                    logger.warn("Error destroying process after failure", destroyError);
+                }
+            }
+            return ContainerExecutionResult.error("Container spawning failed: " + e.getClass().getSimpleName() + " - " + e.getMessage());
         }
     }
     
@@ -168,12 +197,15 @@ public class ContainerSpawner {
     }
     
     /**
-     * Escapes code for safe shell injection
-     * Prevents shell injection attacks
+     * Encodes code for safe shell execution using Base64
+     * Prevents shell injection attacks by encoding the user code
+     * The decoding happens inside the container with: echo $USER_CODE | base64 -d
      */
     private String encodeForShell(String code) {
-        // Simple escaping for now; in production use proper encoding
-        return code.replace("'", "'\\''");
+        // Use Base64 encoding to eliminate shell interpretation of special characters
+        // This prevents injection attacks like: ${VAR}, backticks, $(...), semicolons, etc.
+        byte[] encoded = Base64.getEncoder().encode(code.getBytes(StandardCharsets.UTF_8));
+        return new String(encoded, StandardCharsets.UTF_8);
     }
     
     /**

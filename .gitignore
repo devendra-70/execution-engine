@@ -14,6 +14,8 @@ build/
 tickets/
 projects/
 
+documents/SRS.md
+
 documents/architecture_document/*
 
 # OS

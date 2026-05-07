@@ -1,0 +1,30 @@
+{
+  "defaultAction": "SCMP_ACT_ALLOW",
+  "comment": "Seccomp profile for sandbox runtime isolation (EPMICMPCOD-349 Subtask 456)",
+  "syscalls": [
+    {
+      "names": [
+        "socket",
+        "connect",
+        "bind",
+        "listen",
+        "sendto",
+        "sendmsg",
+        "recvfrom",
+        "recvmsg",
+        "getaddrinfo",
+        "gethostbyname",
+        "gethostbyname2",
+        "getpeername",
+        "getsockname",
+        "setsockopt",
+        "getsockopt",
+        "shutdown",
+        "socketpair"
+      ],
+      "action": "SCMP_ACT_ERRNO",
+      "args": [],
+      "comment": "Block all network-related syscalls with permission denied (errno 13/EACCES)"
+    }
+  ]
+}

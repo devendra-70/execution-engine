@@ -1,6 +1,8 @@
 package com.epam.execution_engine_service.persistence.service;
 
+import com.epam.execution_engine_service.persistence.entity.SubmissionEntity;
 import com.epam.execution_engine_service.persistence.event.ExecutionResultEvent;
+import com.epam.execution_engine_service.persistence.mapper.ResultMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,17 +42,40 @@ class ExecutionResultPublishingServiceTest {
     private ValueOperations<String, String> valueOps;
 
     @Mock
+    private ResultMapper resultMapper;
+
+    @Mock
     private ObjectMapper objectMapper;
 
     @InjectMocks
     private ExecutionResultPublishingService service;
 
+    private SubmissionEntity entity;
     private ExecutionResultEvent event;
     private UUID executionId;
 
     @BeforeEach
     void setUp() throws Exception {
         executionId = UUID.randomUUID();
+
+        // Build SubmissionEntity (passed to service)
+        entity = SubmissionEntity.builder()
+            .id(1L)
+            .executionId(executionId)
+            .userId("user123")
+            .problemId("problem456")
+            .language("JAVA")
+            .mode("SUBMIT")
+            .verdict("PASSED")
+            .status("COMPLETED")
+            .score(100)
+            .totalRuntimeMs(1500L)
+            .memoryBytes(51200000L)
+            .createdAt(OffsetDateTime.now())
+            .testResults(new ArrayList<>())
+            .build();
+
+        // Build ExecutionResultEvent (used internally by service)
         event = ExecutionResultEvent.builder()
             .executionId(executionId)
             .userId("user123")
@@ -65,6 +90,7 @@ class ExecutionResultPublishingServiceTest {
             .build();
 
         when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(resultMapper.toExecutionResultEvent(any(SubmissionEntity.class))).thenReturn(event);
         when(objectMapper.writeValueAsString(any())).thenReturn("{\"status\":\"COMPLETED\"}");
     }
 
@@ -76,7 +102,7 @@ class ExecutionResultPublishingServiceTest {
         @DisplayName("Should set execution status in Redis with correct key")
         void testPublishExecutionCompletion_setsKeyFormat() throws Exception {
             // Act
-            service.publishExecutionCompletion(event);
+            service.publishExecutionResult(entity);
 
             // Assert
             String expectedKey = "execution:status:" + executionId;
@@ -91,7 +117,7 @@ class ExecutionResultPublishingServiceTest {
         @DisplayName("Should set Redis KV with configured TTL")
         void testPublishExecutionCompletion_setsTTL() throws Exception {
             // Act
-            service.publishExecutionCompletion(event);
+            service.publishExecutionResult(entity);
 
             // Assert - verify TTL is set (default 600 seconds)
             verify(valueOps).set(
@@ -105,7 +131,7 @@ class ExecutionResultPublishingServiceTest {
         @DisplayName("Should serialize event to JSON for Redis storage")
         void testPublishExecutionCompletion_serializesToJson() throws Exception {
             // Act
-            service.publishExecutionCompletion(event);
+            service.publishExecutionResult(entity);
 
             // Assert
             verify(objectMapper).writeValueAsString(any());
@@ -120,7 +146,7 @@ class ExecutionResultPublishingServiceTest {
         @DisplayName("Should publish to execution-completed channel")
         void testPublishExecutionCompletion_publishesToChannel() throws Exception {
             // Act
-            service.publishExecutionCompletion(event);
+            service.publishExecutionResult(entity);
 
             // Assert
             verify(redisTemplate).convertAndSend(
@@ -137,7 +163,7 @@ class ExecutionResultPublishingServiceTest {
             when(objectMapper.writeValueAsString(any())).thenReturn(jsonPayload);
 
             // Act
-            service.publishExecutionCompletion(event);
+            service.publishExecutionResult(entity);
 
             // Assert
             verify(redisTemplate).convertAndSend(
@@ -155,7 +181,7 @@ class ExecutionResultPublishingServiceTest {
         @DisplayName("Should throw exception for null event")
         void testPublishExecutionCompletion_nullEventThrows() {
             assertThrows(IllegalArgumentException.class,
-                () -> service.publishExecutionCompletion(null));
+                () -> service.publishExecutionResult(null));
         }
 
         @Test
@@ -166,7 +192,7 @@ class ExecutionResultPublishingServiceTest {
 
             // Act & Assert
             assertThrows(IllegalArgumentException.class,
-                () -> service.publishExecutionCompletion(event));
+                () -> service.publishExecutionResult(null));
         }
 
         @Test
@@ -177,18 +203,18 @@ class ExecutionResultPublishingServiceTest {
                 .thenThrow(new RuntimeException("JSON serialization failed"));
 
             // Act - should not rethrow
-            assertDoesNotThrow(() -> service.publishExecutionCompletion(event));
+            assertDoesNotThrow(() -> service.publishExecutionResult(entity));
         }
 
         @Test
         @DisplayName("Should log and continue on Redis connection error")
         void testPublishExecutionCompletion_redisErrorHandled() throws Exception {
             // Arrange
-            when(valueOps.set(anyString(), anyString(), any(Duration.class)))
-                .thenThrow(new RuntimeException("Redis connection failed"));
+            doThrow(new RuntimeException("Redis connection failed"))
+                .when(valueOps).set(anyString(), anyString(), any(Duration.class));
 
             // Act - should not rethrow
-            assertDoesNotThrow(() -> service.publishExecutionCompletion(event));
+            assertDoesNotThrow(() -> service.publishExecutionResult(entity));
         }
     }
 
@@ -198,18 +224,24 @@ class ExecutionResultPublishingServiceTest {
 
         @Test
         @DisplayName("Should retrieve execution status from Redis")
-        void testGetExecutionStatus() {
+        void testGetExecutionStatus() throws Exception {
             // Arrange
             String statusJson = "{\"status\":\"COMPLETED\"}";
+            ExecutionResultEvent expectedEvent = ExecutionResultEvent.builder()
+                .executionId(executionId)
+                .status("COMPLETED")
+                .build();
             when(valueOps.get("execution:status:" + executionId))
                 .thenReturn(statusJson);
             when(redisTemplate.opsForValue()).thenReturn(valueOps);
+            when(objectMapper.readValue(statusJson, ExecutionResultEvent.class))
+                .thenReturn(expectedEvent);
 
             // Act
-            String result = service.getExecutionStatus(executionId.toString());
+            ExecutionResultEvent result = service.getExecutionResult(executionId);
 
             // Assert
-            assertEquals(statusJson, result);
+            assertNotNull(result);
         }
 
         @Test
@@ -221,19 +253,17 @@ class ExecutionResultPublishingServiceTest {
             when(redisTemplate.opsForValue()).thenReturn(valueOps);
 
             // Act
-            String result = service.getExecutionStatus(executionId.toString());
+            ExecutionResultEvent result = service.getExecutionResult(executionId);
 
             // Assert
             assertNull(result);
         }
 
         @Test
-        @DisplayName("Should throw for null or blank executionId in retrieval")
+        @DisplayName("Should throw for null executionId in retrieval")
         void testGetExecutionStatus_nullExecutionIdThrows() {
             assertThrows(IllegalArgumentException.class,
-                () -> service.getExecutionStatus(null));
-            assertThrows(IllegalArgumentException.class,
-                () -> service.getExecutionStatus(""));
+                () -> service.getExecutionResult(null));
         }
     }
 
@@ -249,33 +279,31 @@ class ExecutionResultPublishingServiceTest {
                 .thenReturn(true);
 
             // Act
-            boolean deleted = service.deleteExecutionStatus(executionId.toString());
+            service.clearExecutionResult(executionId);
 
             // Assert
-            assertTrue(deleted);
+            verify(redisTemplate).delete("execution:status:" + executionId);
         }
 
         @Test
-        @DisplayName("Should return false when status not found")
+        @DisplayName("Should handle deletion when status not found")
         void testDeleteExecutionStatus_notFound() {
             // Arrange
             when(redisTemplate.delete("execution:status:" + executionId))
                 .thenReturn(false);
 
             // Act
-            boolean deleted = service.deleteExecutionStatus(executionId.toString());
+            service.clearExecutionResult(executionId);
 
             // Assert
-            assertFalse(deleted);
+            verify(redisTemplate).delete("execution:status:" + executionId);
         }
 
         @Test
-        @DisplayName("Should throw for null or blank executionId in deletion")
+        @DisplayName("Should throw for null executionId in deletion")
         void testDeleteExecutionStatus_nullExecutionIdThrows() {
             assertThrows(IllegalArgumentException.class,
-                () -> service.deleteExecutionStatus(null));
-            assertThrows(IllegalArgumentException.class,
-                () -> service.deleteExecutionStatus(""));
+                () -> service.clearExecutionResult(null));
         }
     }
 }

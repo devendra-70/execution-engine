@@ -1,7 +1,7 @@
 package com.epam.execution_engine_service.persistence.service;
 
-import com.epam.execution_engine_service.domain.dto.ExecutionResultEvent;
-import com.epam.execution_engine_service.domain.dto.TestCaseResultEvent;
+import com.epam.execution_engine_service.persistence.event.ExecutionResultEvent;
+import com.epam.execution_engine_service.persistence.event.TestCaseResultEvent;
 import com.epam.execution_engine_service.persistence.entity.SubmissionEntity;
 import com.epam.execution_engine_service.persistence.mapper.ResultMapper;
 import com.epam.execution_engine_service.persistence.repository.SubmissionRepository;

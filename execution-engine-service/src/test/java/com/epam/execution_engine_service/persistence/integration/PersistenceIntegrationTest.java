@@ -393,6 +393,6 @@ public class PersistenceIntegrationTest {
         // Assert
         assertThat(retrieved).isPresent();
         assertThat(retrieved.get().getSubmittedCode()).isEqualTo(largeCode);
-        assertThat(retrieved.get().getRawOutput()).hasLength(testSubmission.getRawOutput().length());
+        assertThat(retrieved.get().getRawOutput().length()).isEqualTo(testSubmission.getRawOutput().length());
     }
 }

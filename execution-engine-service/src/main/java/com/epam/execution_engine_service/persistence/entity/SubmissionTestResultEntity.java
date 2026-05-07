@@ -108,7 +108,7 @@ public class SubmissionTestResultEntity {
         referencedColumnName = "execution_id",
         insertable = false,
         updatable = false,
-        foreignKey = @ForeignKey(name = "fk_submission_test_results_submission")
+        foreignKey = @ForeignKey(name = "fk_submission_test_results_execution")
     )
     private SubmissionEntity submission;
 

@@ -1,8 +1,9 @@
 package com.epam.execution_engine_service.cache.service;
 
-import com.epam.execution_engine_service.domain.dto.ExecutionResultEvent;
+import com.epam.execution_engine_service.persistence.event.ExecutionResultEvent;
 import com.epam.execution_engine_service.persistence.entity.SubmissionEntity;
 import com.epam.execution_engine_service.persistence.mapper.ResultMapper;
+import com.epam.execution_engine_service.persistence.service.ExecutionResultPublishingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -240,7 +241,7 @@ class ExecutionResultPublishingServiceTest {
 
         @Test
         @DisplayName("Should return null on deserialization error")
-        throws Exception {
+        void testGetExecutionResultDeserializationError() throws Exception {
             // Arrange
             String invalidJson = "not valid json";
             when(redisTemplate.opsForValue()).thenReturn(valueOps);

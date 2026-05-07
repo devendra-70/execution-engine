@@ -95,6 +95,13 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>1.19.7</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Mockito: Unit test mocking -->
         <dependency>
             <groupId>org.mockito</groupId>

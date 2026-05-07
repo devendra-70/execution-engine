@@ -1,4 +1,4 @@
-package com.epam.execution_engine_service.config;
+package com.epam.execution_engine_service.persistence.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;

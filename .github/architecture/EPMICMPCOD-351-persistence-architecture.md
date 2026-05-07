@@ -153,33 +153,40 @@ CREATE INDEX idx_submission_test_results_execution ON submission_test_results(ex
 
 ## 3. COMPONENT STRUCTURE
 
-### 3.1 Package Organization
+### 3.1 Package Organization (SRS §13 Aligned)
+
+**Strict adherence to SRS §13 repository layout:**
 
 ```
-com.epam.execution_engine_service
-├── persistence/
-│   ├── entity/
-│   │   ├── SubmissionEntity
-│   │   └── SubmissionTestResultEntity
-│   ├── repository/
-│   │   ├── SubmissionRepository (Spring Data JPA)
-│   │   └── SubmissionTestResultRepository (Spring Data JPA)
-│   ├── service/
-│   │   ├── ResultPersistenceService (JPA ops + batch logic)
-│   │   └── ResultPublishingService (Redis ops)
-│   ├── dto/
-│   │   ├── ExecutionResultEvent (inbound DTO)
-│   │   ├── TestCaseResultEvent (inbound DTO)
-│   │   └── ResultResponse (outbound DTO)
-│   ├── mapper/
-│   │   └── ResultMapper (ExecutionResultEvent → SubmissionEntity)
-│   └── config/
-│       ├── JpaConfig (batch properties, query hints)
-│       └── RedisConfig (Redis template, serializers)
+com.epam.execution_engine_service/
+├── gateway/
+│   └── [...REST controllers, WebSocket handlers, JWT Auth...]
 ├── orchestrator/
-│   └── ExecutionOrchestrator (main orchestrator; calls persistence service)
-└── [...other modules...]
+│   ├── ExecutionOrchestrator.java (calls persistence service)
+│   ├── kafka/
+│   │   └── [...Kafka consumer, manual ACK handler...]
+│   └── [...cache, executor pool management...]
+└── persistence/
+    ├── entity/
+    │   ├── SubmissionEntity
+    │   └── SubmissionTestResultEntity
+    ├── repository/
+    │   ├── SubmissionRepository (Spring Data JPA)
+    │   └── SubmissionTestResultRepository (Spring Data JPA)
+    ├── service/
+    │   ├── ExecutionResultPersistenceService (JPA ops + batch logic + Kafka ACK)
+    │   └── ExecutionResultPublishingService (Redis ops)
+    ├── mapper/
+    │   └── ResultMapper (Maps ExecutionResultEvent → SubmissionEntity)
+    ├── event/
+    │   ├── ExecutionResultEvent (inbound DTO from Orchestrator)
+    │   └── TestCaseResultEvent (inbound DTO - part of ExecutionResultEvent)
+    └── config/
+        ├── JpaConfig.java (batch properties, DDL validation)
+        └── RedisConfig.java (Redis template, serializers)
 ```
+
+**Rationale:** All classes are collocated within `persistence` component (SRS §13), eliminating external "domain" folder. Event/DTO classes live in `event` subpackage within persistence since they are persistence-specific inbound contracts.
 
 ### 3.2 JPA Entity Classes
 
@@ -814,7 +821,7 @@ services:
 
 ## 8. PACKAGE STRUCTURE & DEPENDENCY INJECTION
 
-### 8.1 Directory Tree
+### 8.1 Directory Tree (SRS §13 Aligned)
 ```
 execution-engine-service/src/main/java/com/epam/execution_engine_service/
 ├── ExecutionEngineServiceApplication.java
@@ -826,12 +833,11 @@ execution-engine-service/src/main/java/com/epam/execution_engine_service/
 │   │   ├── SubmissionRepository.java
 │   │   └── SubmissionTestResultRepository.java
 │   ├── service/
-│   │   ├── ResultPersistenceService.java
-│   │   └── ResultPublishingService.java
-│   ├── dto/
+│   │   ├── ExecutionResultPersistenceService.java
+│   │   └── ExecutionResultPublishingService.java
+│   ├── event/
 │   │   ├── ExecutionResultEvent.java
-│   │   ├── TestCaseResultEvent.java
-│   │   └── ResultResponse.java
+│   │   └── TestCaseResultEvent.java
 │   ├── mapper/
 │   │   └── ResultMapper.java
 │   └── config/
@@ -839,7 +845,7 @@ execution-engine-service/src/main/java/com/epam/execution_engine_service/
 │       └── RedisConfig.java
 ├── orchestrator/
 │   └── ExecutionOrchestrator.java
-└── [other modules]
+└── [other modules per SRS §13]
 ```
 
 ### 8.2 Spring Component Scanning

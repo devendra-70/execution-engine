@@ -44,25 +44,25 @@ pipeline {
                     def scmVars = checkout scm
                     env.GIT_COMMIT = scmVars.GIT_COMMIT
                 }
-                sh 'cd executionEngine-service && chmod +x mvnw'
+                sh 'cd execution-engine-service && chmod +x mvnw'
             }
         }
 
         // ── Stage 3: Compile ─────────────────────────
         stage('Compile') {
             steps {
-                sh 'cd executionEngine-service && ./mvnw -B compile'
+                sh 'cd execution-engine-service && ./mvnw -B compile'
             }
         }
 
         // ── Stage 4: Unit Tests ─────────────────────────
         stage('Unit Tests') {
             steps {
-                sh 'cd executionEngine-service && ./mvnw -B test'
+                sh 'cd execution-engine-service && ./mvnw -B test'
             }
             post {
                 always {
-                    junit testResults: 'executionEngine-service/**/target/surefire-reports/*.xml',
+                    junit testResults: 'execution-engine-service/**/target/surefire-reports/*.xml',
                         allowEmptyResults: true
                 }
             }
@@ -71,7 +71,7 @@ pipeline {
         // ── Stage 5: Code Coverage (JaCoCo) ─────────────────────────
         stage('Code Coverage') {
             steps {
-                sh 'cd executionEngine-service && ./mvnw -B verify -DskipTests'
+                sh 'cd execution-engine-service && ./mvnw -B verify -DskipTests'
             }
         }
 
@@ -82,7 +82,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'java-team2-sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('SonarHyd') {
                         sh """
-                        cd executionEngine-service && ./mvnw -B sonar:sonar \
+                        cd execution-engine-service && ./mvnw -B sonar:sonar \
                         -Dsonar.projectKey=${params.SONAR_PROJECT_KEY} \
                         -Dsonar.host.url=${SONAR_HOST_URL} \
                         -Dsonar.token=${SONAR_TOKEN} \

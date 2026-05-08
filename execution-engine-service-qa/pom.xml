@@ -16,7 +16,6 @@
         <dependency>
             <groupId>com.epam</groupId>
             <artifactId>executionEngine-service</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <!-- Testing -->

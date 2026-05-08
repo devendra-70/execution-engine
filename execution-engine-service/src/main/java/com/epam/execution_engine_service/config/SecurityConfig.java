@@ -11,14 +11,13 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * Spring Security configuration for OAuth2 JWT-based authentication.
- *
- * <p>Configures:
- * <ul>
- *   <li>OAuth2 Resource Server with JWT validation</li>
- *   <li>Method-level authorization via @PreAuthorize</li>
- *   <li>Public endpoints (health, WebSocket)</li>
- *   <li>Stateless session management for REST API</li>
- * </ul>
+ * 
+ * Implements SRS Section 3.6 Security Configuration:
+ * - OAuth2 Resource Server with JWT validation
+ * - Public endpoints: /actuator/health, /ws/** (health checks and WebSocket handshake)
+ * - Protected endpoints: /api/executions/** (requires Bearer JWT)
+ * - Method-level authorization via @PreAuthorize for fine-grained control
+ * - Stateless session management for REST API
  *
  * <p>JWT validation is performed by Spring Security filter chain.
  * Invalid or missing tokens result in 401 Unauthorized before any controller code executes.
@@ -34,12 +33,12 @@ public class SecurityConfig {
     /**
      * Configures the HTTP security filter chain.
      *
-     * <p>Setup:
+     * <p>Setup (per SRS Section 3.6):
      * <ul>
      *   <li>CSRF disabled (stateless REST API)</li>
      *   <li>Stateless session management (no session cookies)</li>
      *   <li>Public endpoints: /actuator/health, /ws/** (WebSocket)</li>
-     *   <li>All other endpoints require authentication</li>
+     *   <li>Protected endpoints: /api/executions/** (requires authentication)</li>
      *   <li>OAuth2 Resource Server with JWT validation</li>
      * </ul>
      *
@@ -60,14 +59,16 @@ public class SecurityConfig {
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
 
-                // Authorization rules
+                // Authorization rules (SRS Section 3.6)
                 .authorizeHttpRequests()
                 // Health check endpoint (no auth required)
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 // WebSocket endpoint (permitted; JWT validation happens at protocol upgrade)
-                .requestMatchers("/ws/**").permitAll()
-                // All other requests require authentication
-                .anyRequest().authenticated()
+                .requestMatchers("/ws", "/ws/**").permitAll()
+                // All /api/executions endpoints require authentication
+                .requestMatchers("/api/executions", "/api/executions/**").authenticated()
+                // Explicitly deny all other routes
+                .anyRequest().denyAll()
                 .and()
 
                 // OAuth2 Resource Server with JWT validation

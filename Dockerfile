@@ -5,6 +5,11 @@ RUN apk add --no-cache wget maven
 
 WORKDIR /app
 
+COPY execution-engine-service/target/*.jar app.jar
+
+EXPOSE 8080
+
+CMD ["java", "-jar", "app.jar"]
 COPY . .
 
 RUN mvn clean package -DskipTests

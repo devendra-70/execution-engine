@@ -10,13 +10,14 @@ build/
 # Logs
 *.log
 
-/github/logs/
-tickets/
-projects/
+.github/logs/*
+tickets/*
+projects/*
 
 documents/architecture_document/*
 
 # OS
 .DS_Store
 Thumbs.db
-documents\SRS.md
+documents/SRS.md
+

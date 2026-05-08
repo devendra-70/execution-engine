@@ -4,7 +4,7 @@ RUN apk add --no-cache wget
 
 WORKDIR /app
 
-COPY executionEngine-service/target/*.jar app.jar
+COPY execution-engine-service/target/*.jar app.jar
 
 EXPOSE 8080
 

@@ -17,8 +17,11 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  * - spring.redis.host
  * - spring.redis.port
  * (externalized in application.properties for environment-specific config)
+ *
+ * NOTE: Bean name is explicitly set to avoid conflict with
+ * com.epam.execution_engine_service.config.RedisConfig (both default to 'redisConfig').
  */
-@Configuration
+@Configuration("persistenceRedisConfig")
 public class RedisConfig {
 
     /**

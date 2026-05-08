@@ -1,12 +1,12 @@
 package com.epam.execution_engine_service.dto;
 
 import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.Set;
 
@@ -16,15 +16,20 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for ExecutionRequest DTO validation.
  *
  * <p>Tests that JSR-380 validation annotations work correctly on the ExecutionRequest DTO.
+ * Uses standalone Hibernate Validator — no Spring context, no external systems required.
  *
  * @author Execution Engine Team
  */
-@SpringBootTest
 @DisplayName("ExecutionRequest DTO Validation Tests")
 class ExecutionRequestValidationTest {
 
-    @Autowired
     private Validator validator;
+
+    @BeforeEach
+    void setUp() {
+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+        validator = factory.getValidator();
+    }
 
     @Test
     @DisplayName("Valid ExecutionRequest passes validation")

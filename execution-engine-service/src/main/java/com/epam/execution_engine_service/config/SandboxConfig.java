@@ -3,6 +3,10 @@ package com.epam.execution_engine_service.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Sandbox Runtime Isolation Configuration
  * 
@@ -17,6 +21,8 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "app.execution.sandbox")
 public class SandboxConfig {
+
+    private static final Logger logger = LoggerFactory.getLogger(SandboxConfig.class);
 
     // ==================== JVM Configuration ====================
     
@@ -114,6 +120,9 @@ public class SandboxConfig {
     }
     
     public void setJvmTieredStopLevel(int jvmTieredStopLevel) {
+        if (jvmTieredStopLevel < 0 || jvmTieredStopLevel > 4) {
+            throw new IllegalArgumentException("JVM tiered stop level must be between 0 and 4, got: " + jvmTieredStopLevel);
+        }
         this.jvmTieredStopLevel = jvmTieredStopLevel;
     }
     
@@ -130,6 +139,13 @@ public class SandboxConfig {
     }
     
     public void setJvmSharedArchiveFile(String jvmSharedArchiveFile) {
+        // Validate path safety to prevent path traversal attacks
+        if (jvmSharedArchiveFile != null) {
+            if (jvmSharedArchiveFile.contains("..")) {
+                throw new IllegalArgumentException(
+                    "JVM shared archive file path cannot contain '..', got: " + jvmSharedArchiveFile);
+            }
+        }
         this.jvmSharedArchiveFile = jvmSharedArchiveFile != null ? jvmSharedArchiveFile : "/sandbox/shared.jsa";
     }
     
@@ -146,6 +162,9 @@ public class SandboxConfig {
     }
     
     public void setJvmThreadStackKb(int jvmThreadStackKb) {
+        if (jvmThreadStackKb <= 0) {
+            throw new IllegalArgumentException("JVM thread stack size must be positive, got: " + jvmThreadStackKb);
+        }
         this.jvmThreadStackKb = jvmThreadStackKb;
     }
     
@@ -154,6 +173,9 @@ public class SandboxConfig {
     }
     
     public void setMemoryLimitMb(int memoryLimitMb) {
+        if (memoryLimitMb <= 0) {
+            throw new IllegalArgumentException("Memory limit must be positive, got: " + memoryLimitMb);
+        }
         this.memoryLimitMb = memoryLimitMb;
     }
     
@@ -162,6 +184,9 @@ public class SandboxConfig {
     }
     
     public void setCpuLimitMillis(long cpuLimitMillis) {
+        if (cpuLimitMillis <= 0) {
+            throw new IllegalArgumentException("CPU limit must be positive, got: " + cpuLimitMillis);
+        }
         this.cpuLimitMillis = cpuLimitMillis;
     }
     
@@ -170,6 +195,9 @@ public class SandboxConfig {
     }
     
     public void setPidLimit(int pidLimit) {
+        if (pidLimit <= 0) {
+            throw new IllegalArgumentException("PID limit must be positive, got: " + pidLimit);
+        }
         this.pidLimit = pidLimit;
     }
     
@@ -236,6 +264,57 @@ public class SandboxConfig {
      */
     public String buildDockerPidLimit() {
         return "--pids-limit " + pidLimit;
+    }
+    
+    /**
+     * Validates configuration consistency after all properties are bound
+     * Ensures JVM heap fits within container memory limit to prevent OOM
+     * Logs warnings if configuration is suboptimal but allows tests to proceed
+     */
+    @PostConstruct
+    public void validateHeapConsistency() {
+        try {
+            // Extract numeric value from heap flags (e.g., "256m" -> 256)
+            int heapMb = parseMemoryValue(jvmXmx);
+            
+            if (heapMb > memoryLimitMb) {
+                logger.warn(
+                    "Heap size ({} MB) exceeds container memory limit ({} MB). " +
+                    "Container may experience OOM. Recommended: heap <= memory * 0.9",
+                    heapMb, memoryLimitMb);
+            }
+        } catch (Exception e) {
+            logger.warn("Could not validate heap consistency: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Parses memory value with unit suffix (e.g., "256m" -> 256, "1g" -> 1024)
+     * 
+     * @param memoryValue memory string with unit (m, g, k)
+     * @return parsed value in megabytes
+     * @throws IllegalArgumentException if format is invalid
+     */
+    private int parseMemoryValue(String memoryValue) {
+        if (memoryValue == null || memoryValue.isEmpty()) {
+            return 0;
+        }
+        
+        String value = memoryValue.toLowerCase().trim();
+        try {
+            if (value.endsWith("g")) {
+                return Integer.parseInt(value.substring(0, value.length() - 1)) * 1024;
+            } else if (value.endsWith("m")) {
+                return Integer.parseInt(value.substring(0, value.length() - 1));
+            } else if (value.endsWith("k")) {
+                return Integer.parseInt(value.substring(0, value.length() - 1)) / 1024;
+            } else {
+                return Integer.parseInt(value);
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid memory format: " + memoryValue + ". Expected format like '256m' or '1g'", e);
+        }
     }
     
     @Override

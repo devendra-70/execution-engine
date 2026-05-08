@@ -19,3 +19,4 @@ documents/architecture_document/*
 # OS
 .DS_Store
 Thumbs.db
+SRS.md

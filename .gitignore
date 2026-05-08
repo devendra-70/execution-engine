@@ -7,6 +7,7 @@
 target/
 build/
 
+
 # Logs
 *.log
 
@@ -14,7 +15,11 @@ build/
 tickets/
 projects/
 
+documents/SRS.md
 documents/architecture_document/*
+
+LOCAL_SETUP_GUIDE.md
+documents\SRS.md
 
 # OS
 .DS_Store

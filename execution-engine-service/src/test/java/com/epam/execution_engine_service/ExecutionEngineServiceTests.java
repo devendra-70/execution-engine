@@ -118,9 +118,36 @@ public class ExecutionEngineServiceTests {
         
         executionController = new ExecutionController(executionRegistrationService, ipAddressExtractor);
         
-        // Setup common mock returns
+        // Setup common mock returns for Redis
         when(redisTemplate.opsForValue()).thenReturn(valueOps);
         when(applicationProperties.getRateLimit()).thenReturn(rateLimitConfig);
+        
+        // Setup default Kafka mock to support all test cases
+        // The KafkaTemplate.send() returns a CompletableFuture<SendResult<K,V>>
+        when(kafkaTemplate.send(anyString(), anyString(), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        
+        // Setup default rate limit config for Redis-based token bucket
+        when(rateLimitConfig.getRequestsPerMinute()).thenReturn(30);
+        when(rateLimitConfig.getWindowSeconds()).thenReturn(60);
+        
+        // Setup default Redis rate limit behavior: allow requests
+        // This is the default for all tests unless overridden
+        setupRedisRateLimitDefaults();
+    }
+    
+    /**
+     * Helper method to setup default Redis mocks for rate limiting
+     * Used by registerExecution tests to ensure Redis operations work
+     * Tests can override these mocks as needed
+     */
+    private void setupRedisRateLimitDefaults() {
+        // Default: Redis returns null (key doesn't exist) for first request
+        when(valueOps.get(anyString())).thenReturn(null);
+        // Default: Redis increment succeeds and returns next count
+        when(valueOps.increment(anyString())).thenReturn(1L);
+        // Default: Redis expire succeeds
+        when(redisTemplate.expire(anyString(), anyLong(), any())).thenReturn(true);
     }
 
     // ========================================================================

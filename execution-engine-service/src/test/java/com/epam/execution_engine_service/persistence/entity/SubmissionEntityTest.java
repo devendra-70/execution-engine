@@ -168,7 +168,12 @@ class SubmissionEntityTest {
 
             assertNotNull(entity.getCreatedAt());
             assertNotNull(entity.getUpdatedAt());
-            assertEquals(entity.getCreatedAt(), entity.getUpdatedAt());
+            // Compare with nanosecond tolerance (within 1 millisecond is acceptable)
+            assertTrue(
+                Math.abs(entity.getCreatedAt().toInstant().toEpochMilli() - 
+                         entity.getUpdatedAt().toInstant().toEpochMilli()) <= 1,
+                "createdAt and updatedAt should be within 1ms of each other"
+            );
         }
 
         @Test

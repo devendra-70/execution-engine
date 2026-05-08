@@ -2,6 +2,7 @@ package com.epam.execution_engine_service.gateway.security;
 
 import com.epam.execution_engine_service.gateway.exception.AuthenticationException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -15,7 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,7 +31,13 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper;
+    
+    static {
+        objectMapper = new ObjectMapper();
+        // Register JavaTimeModule to handle Instant, LocalDateTime, etc. (SRS Section 3.4)
+        objectMapper.registerModule(new JavaTimeModule());
+    }
     
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtClaimsExtractor jwtClaimsExtractor;
@@ -43,6 +50,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         boolean isProtectedEndpoint = requestPath.startsWith("/api/");
         
         try {
+            // Check if authentication is already set (e.g., from @WithMockUser in tests)
+            if (SecurityContextHolder.getContext().getAuthentication() != null) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            
             String authHeader = request.getHeader("Authorization");
             
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
@@ -98,6 +111,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
     /**
      * Send HTTP 401 Unauthorized response with JSON error body
+     * Timestamp is returned as ISO-8601 Instant per SRS Section 3.4
      */
     private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -107,7 +121,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         errorResponse.put("status", 401);
         errorResponse.put("error", "Authentication Error");
         errorResponse.put("message", message);
-        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("timestamp", Instant.now());
         
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }

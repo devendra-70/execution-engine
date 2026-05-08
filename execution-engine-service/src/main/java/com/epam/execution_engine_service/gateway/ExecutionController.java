@@ -49,8 +49,17 @@ public class ExecutionController {
         
         // Extract userId from JWT (set by JwtAuthenticationFilter)
         SecurityContext securityContext = SecurityContextHolder.getContext();
-        String userId = securityContext.getAuthentication() != null ?
-                (String) securityContext.getAuthentication().getPrincipal() : null;
+        String userId = null;
+        
+        if (securityContext.getAuthentication() != null) {
+            Object principal = securityContext.getAuthentication().getPrincipal();
+            if (principal instanceof String) {
+                userId = (String) principal;
+            } else if (principal != null) {
+                // Handle case where principal is a UserDetails object (e.g., @WithMockUser)
+                userId = securityContext.getAuthentication().getName();
+            }
+        }
         
         // Fallback to request attribute if not in SecurityContext
         if (userId == null) {

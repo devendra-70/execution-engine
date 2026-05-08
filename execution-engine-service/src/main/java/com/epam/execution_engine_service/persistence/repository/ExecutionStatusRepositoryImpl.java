@@ -3,7 +3,7 @@ package com.epam.execution_engine_service.persistence.repository;
 import com.epam.execution_engine_service.config.ApplicationProperties;
 import com.epam.execution_engine_service.persistence.entity.ExecutionStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -14,14 +14,26 @@ import java.util.concurrent.TimeUnit;
  * Stores ExecutionStatus in Redis with configurable TTL
  */
 @Repository
-@RequiredArgsConstructor
 public class ExecutionStatusRepositoryImpl implements ExecutionStatusRepository {
     
     private static final String KEY_PREFIX = "execution:status:";
     
     private final RedisTemplate<String, String> redisTemplate;
     private final ApplicationProperties applicationProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+    
+    /**
+     * Constructor to initialize ObjectMapper with JavaTimeModule for Instant/LocalDateTime serialization
+     * Called by Spring dependency injection
+     */
+    public ExecutionStatusRepositoryImpl(RedisTemplate<String, String> redisTemplate, 
+                                        ApplicationProperties applicationProperties) {
+        this.redisTemplate = redisTemplate;
+        this.applicationProperties = applicationProperties;
+        this.objectMapper = new ObjectMapper();
+        // Register JavaTimeModule to handle Instant, LocalDateTime, etc. (SRS Section 3.4)
+        this.objectMapper.registerModule(new JavaTimeModule());
+    }
     
     @Override
     public ExecutionStatus save(ExecutionStatus status) {

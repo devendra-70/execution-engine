@@ -1,22 +1,38 @@
 package com.epam.execution_engine_service.controller;
 
+import com.epam.execution_engine_service.config.SecurityTestConfig;
+import com.epam.execution_engine_service.config.TestKafkaProducerConfiguration;
+import com.epam.execution_engine_service.config.TestRedisConfiguration;
 import com.epam.execution_engine_service.dto.ExecutionRequest;
 import com.epam.execution_engine_service.dto.ErrorResponse;
+import com.epam.execution_engine_service.persistence.repository.ExecutionStatusRepository;
+import com.epam.execution_engine_service.service.RateLimiterService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
+
+import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+
+import org.springframework.test.web.servlet.MvcResult;
 
 /**
  * Integration tests for ExecutionController validation and authentication.
@@ -27,6 +43,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
+@Import({SecurityTestConfig.class, TestRedisConfiguration.class, TestKafkaProducerConfiguration.class})
 @DisplayName("ExecutionController Integration Tests")
 class ExecutionControllerIntegrationTest {
 
@@ -35,6 +53,15 @@ class ExecutionControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockBean
+    private RateLimiterService rateLimiterService;
+
+    @MockBean
+    private ExecutionStatusRepository executionStatusRepository;
+
+    @MockBean
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     private ExecutionRequest validRequest;
 
@@ -46,6 +73,21 @@ class ExecutionControllerIntegrationTest {
                 "SUBMIT",
                 "class Solution { public int[] twoSum(int[] nums, int target) { ... } }"
         );
+        
+        // Configure RateLimiterService mock (SRS Section 3.5: Rate limiting)
+        // Mock returns normally (doesn't throw RateLimitException) to allow requests
+        doNothing().when(rateLimiterService).checkRateLimit(ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
+        
+        // Configure ExecutionStatusRepository mock (SRS Section 8: Redis status storage)
+        // Mock returns the ExecutionStatus that was saved
+        when(executionStatusRepository.save(ArgumentMatchers.any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        
+        // Configure Kafka mock (SRS Section 7.1: Kafka publishing)
+        // KafkaTemplate is provided by TestKafkaProducerConfiguration as a mock bean
+        // Configure it to return immediately without connecting to actual Kafka broker
+        when(kafkaTemplate.send(ArgumentMatchers.anyString(), ArgumentMatchers.anyString(), ArgumentMatchers.any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
     }
 
     @Test

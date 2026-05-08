@@ -1,6 +1,7 @@
 package com.epam.execution_engine_service.exception;
 
 import com.epam.execution_engine_service.dto.ErrorResponse;
+import com.epam.execution_engine_service.gateway.exception.ValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -75,6 +76,45 @@ public class ValidationExceptionHandler {
         log.warn("Validation failed for request to {}: fields={}",
                 request.getRequestURI(),
                 fieldErrors.stream().map(f -> f.getField()).collect(Collectors.toList()));
+
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * Handles custom ValidationException thrown by RequestValidator.
+     *
+     * <p>Returns a 400 Bad Request response with the validation message,
+     * including a field error entry if the message references a known field.
+     *
+     * @param ex the validation exception
+     * @param request the HTTP request
+     * @return 400 Bad Request
+     */
+    @ExceptionHandler(ValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ErrorResponse> handleValidationException(
+            ValidationException ex,
+            HttpServletRequest request) {
+
+        // Extract field name from the exception message if possible
+        List<ErrorResponse.FieldErrorDetail> fieldErrors = new ArrayList<>();
+        String msg = ex.getMessage() != null ? ex.getMessage() : "";
+        for (String field : List.of("mode", "problemId", "language", "sourceCode")) {
+            if (msg.toLowerCase().contains(field.toLowerCase())) {
+                fieldErrors.add(new ErrorResponse.FieldErrorDetail(field, msg));
+                break;
+            }
+        }
+
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(400)
+                .error("Validation Failed")
+                .message(msg)
+                .fieldErrors(fieldErrors)
+                .build();
+
+        log.warn("Validation exception for request to {}: {}", request.getRequestURI(), msg);
 
         return ResponseEntity.badRequest().body(response);
     }

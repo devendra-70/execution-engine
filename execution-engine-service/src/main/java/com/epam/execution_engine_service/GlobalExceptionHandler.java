@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -113,13 +113,14 @@ public class GlobalExceptionHandler {
     
     /**
      * Build standardized error response
+     * Timestamp is returned as ISO-8601 Instant per SRS Section 3.4
      */
     private Map<String, Object> buildErrorResponse(int status, String error, String message) {
         Map<String, Object> response = new HashMap<>();
         response.put("status", status);
         response.put("error", error);
         response.put("message", message);
-        response.put("timestamp", LocalDateTime.now());
+        response.put("timestamp", Instant.now());
         return response;
     }
 }

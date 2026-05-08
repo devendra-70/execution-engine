@@ -7,15 +7,21 @@
 target/
 build/
 
+
 # Logs
 *.log
 
-/github/logs/
-tickets/
-projects/
+/.github/logs/
+tickets/*
+projects/*
 
+documents/SRS.md
 documents/architecture_document/*
+
+LOCAL_SETUP_GUIDE.md
+documents/SRS.md
 
 # OS
 .DS_Store
 Thumbs.db
+SRS.md

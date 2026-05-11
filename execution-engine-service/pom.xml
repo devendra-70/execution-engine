@@ -50,6 +50,7 @@
             <version>3.3.0</version>
         </dependency>
 
+        <!-- Lombok: Reduce boilerplate -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -74,25 +75,6 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>0.12.3</version>
             <scope>runtime</scope>
-        </dependency>
-
-        <!-- Lombok -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- Validation Framework -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-
-        <!-- Spring Security -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
         <!-- OAuth2 Resource Server -->
@@ -128,24 +110,8 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Spring Data Redis (EPMICMPCOD-462, §8) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
-
-        <!-- Spring Kafka (§5.2 Kafka offset ACK semantics) -->
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
-        </dependency>
-
-        <!-- Lombok: Reduce boilerplate (compile-time) -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
+        <!-- Spring Data Redis (EPMICMPCOD-462, §8) already declared above -->
+        <!-- Spring Kafka (§5.2 Kafka offset ACK semantics) already declared above -->
 
         <!-- Flyway: Database migration (for V001__create_persistence_schema.sql) -->
         <dependency>
@@ -156,12 +122,6 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
-        </dependency>
-
-        <!-- Jackson: JSON serialization (already in spring-boot-starter-web) -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
         <!-- H2 Database for Unit Tests -->

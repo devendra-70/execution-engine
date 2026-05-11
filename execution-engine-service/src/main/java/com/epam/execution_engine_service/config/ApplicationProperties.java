@@ -53,5 +53,7 @@ public class ApplicationProperties {
     @Setter
     public static class Execution {
         private int orchestrationThreads;
+        /** Configurable hard timeout per submission in ms (SRS §12: timeout-ms: 3000). */
+        private long timeoutMs = 3000L;
     }
 }

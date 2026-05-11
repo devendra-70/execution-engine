@@ -30,6 +30,8 @@ build/
 !**/src/test/**/build/
 
 test-output.txt
+code-review-report.md
+REFACTOR_REPORT.md
 
 
 ### VS Code ###

@@ -76,24 +76,9 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Lombok -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
-
         <!-- Validation Framework -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
 
         <!-- Spring Security -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
 
         <!-- OAuth2 Resource Server -->
         <dependency>
@@ -129,16 +114,8 @@
         </dependency>
 
         <!-- Spring Data Redis (EPMICMPCOD-462, §8) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
 
         <!-- Spring Kafka (§5.2 Kafka offset ACK semantics) -->
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
-        </dependency>
 
         <!-- Lombok: Reduce boilerplate (compile-time) -->
         <dependency>
@@ -159,10 +136,6 @@
         </dependency>
 
         <!-- Jackson: JSON serialization (already in spring-boot-starter-web) -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
-        </dependency>
 
         <!-- H2 Database for Unit Tests -->
         <dependency>

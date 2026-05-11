@@ -1,3 +1,4 @@
+
 .idea/
 *.iml
 .vscode/
@@ -10,26 +11,17 @@ build/
 # Logs
 *.log
 
-.github/logs/*
+/.github/logs/
 tickets/*
 projects/*
 
-
 documents/SRS.md
-
 documents/architecture_document/*
 
-# Local reports
-REFACTOR_REPORT.md
-code-review-report.md
-
 LOCAL_SETUP_GUIDE.md
+documents/SRS.md
 
 # OS
 .DS_Store
 Thumbs.db
-documents/SRS.md
-*.txt
-
-
 SRS.md

@@ -30,7 +30,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://kafka:9092,OUTSIDE://kafka:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092,OUTSIDE://localhost:9094
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,OUTSIDE:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -63,6 +63,26 @@ services:
     networks:
       - execution-engine-network
 
+  # PostgreSQL Database for Persistence (SRS Section 5)
+  postgres:
+    image: postgres:16-alpine
+    container_name: execution-engine-postgres
+    environment:
+      POSTGRES_DB: execution_engine
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - execution-engine-network
+
   # Kafka UI for Monitoring (Optional - for development/debugging)
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -78,10 +98,13 @@ services:
     networks:
       - execution-engine-network
 
+
+
 volumes:
   redis_data:
   kafka_data:
   zookeeper_data:
+  postgres_data:
 
 networks:
   execution-engine-network:

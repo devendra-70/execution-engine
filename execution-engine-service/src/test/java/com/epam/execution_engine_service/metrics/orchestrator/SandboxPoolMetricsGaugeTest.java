@@ -90,9 +90,33 @@ class SandboxPoolMetricsGaugeTest {
     }
 
     @Test
-    void testConstructor_WithNullContainerSpawner_SetsReference() {
-        // Act & Assert - Should handle initialization without requiring pool methods
-        assertDoesNotThrow(() -> new SandboxPoolMetricsGauge(meterRegistry, containerSpawner, applicationProperties));
+    void testGauge_CallsContainerSpawnerGetPoolSize() {
+        // Arrange
+        when(containerSpawner.getPoolSize()).thenReturn(8);
+        SandboxPoolMetricsGauge testGauge = new SandboxPoolMetricsGauge(meterRegistry, containerSpawner, applicationProperties);
+
+        // Act - Sample the gauge (this calls getAvailablePoolSize())
+        double value = meterRegistry.find("sandbox.pool.available.size").gauge().value();
+
+        // Assert - Should have called containerSpawner.getPoolSize() and returned the mocked value
+        verify(containerSpawner, atLeastOnce()).getPoolSize();
+        assertEquals(8.0, value, "Gauge should return value from ContainerSpawner.getPoolSize()");
+    }
+
+    @Test
+    void testConstructor_WithNullContainerSpawner_ThrowsNullPointerException() {
+        // Act & Assert - Constructor should fail-fast with NPE for null containerSpawner
+        assertThrows(NullPointerException.class, 
+            () -> new SandboxPoolMetricsGauge(meterRegistry, null, applicationProperties),
+            "Constructor should throw NullPointerException for null containerSpawner");
+    }
+
+    @Test
+    void testConstructor_WithNullMeterRegistry_ThrowsNullPointerException() {
+        // Act & Assert - Constructor should fail-fast with NPE for null meterRegistry
+        assertThrows(NullPointerException.class,
+            () -> new SandboxPoolMetricsGauge(null, containerSpawner, applicationProperties),
+            "Constructor should throw NullPointerException for null meterRegistry");
     }
 
     @Test
@@ -103,10 +127,14 @@ class SandboxPoolMetricsGaugeTest {
 
     @Test
     void testGauge_ReturnsNumericalValue() {
+        // Arrange
+        when(containerSpawner.getPoolSize()).thenReturn(5);
+        SandboxPoolMetricsGauge testGauge = new SandboxPoolMetricsGauge(meterRegistry, containerSpawner, applicationProperties);
+
         // Act
         double value = meterRegistry.find("sandbox.pool.available.size").gauge().value();
 
-        // Assert - Should return a number >= 0
-        assertTrue(value >= 0 || Double.isNaN(value));
+        // Assert - Should return the mocked container pool size
+        assertEquals(5.0, value, "Gauge should return actual pool size from ContainerSpawner");
     }
 }

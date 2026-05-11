@@ -209,4 +209,61 @@ class ExecutionLatencyMetricsTimerTest {
         // Assert
         assertNotNull(returned);
     }
+
+    @Test
+    void testConstructor_WithNullMeterRegistry_ThrowsNullPointerException() {
+        // Act & Assert - Constructor should fail-fast with NPE for null meterRegistry
+        assertThrows(NullPointerException.class,
+            () -> new ExecutionLatencyMetricsTimer(null, applicationProperties),
+            "Constructor should throw NullPointerException for null meterRegistry");
+    }
+
+    @Test
+    void testConstructor_WithNullApplicationProperties_ThrowsNullPointerException() {
+        // Act & Assert - Constructor should fail-fast with NPE for null applicationProperties
+        assertThrows(NullPointerException.class,
+            () -> new ExecutionLatencyMetricsTimer(meterRegistry, null),
+            "Constructor should throw NullPointerException for null applicationProperties");
+    }
+
+    @Test
+    void testRecordLatency_TracksMicrometerPercentiles() {
+        // Arrange - Record multiple latencies to populate percentile histogram
+        java.util.function.Supplier<Integer> supplier = () -> {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return 42;
+        };
+
+        // Act - Record several times to generate histogram data
+        for (int i = 0; i < 20; i++) {
+            timer.recordLatency(supplier);
+        }
+
+        // Assert - Verify percentiles are tracked by Micrometer
+        var timerMetric = meterRegistry.find("execution.latency.milliseconds").timer();
+        assertNotNull(timerMetric);
+        assertTrue(timerMetric.count() >= 20, "Should have recorded at least 20 measurements");
+        assertTrue(timerMetric.totalTime(java.util.concurrent.TimeUnit.MILLISECONDS) > 0,
+            "Total time should be positive (at least 200ms for 10ms sleeps)");
+    }
+
+    @Test
+    void testRecordLatency_WithExceptionStillRecords() {
+        // Arrange
+        java.util.function.Supplier<Object> failingSupplier = () -> {
+            throw new IllegalStateException("Simulated execution failure");
+        };
+
+        // Act & Assert - Should still record timing even though exception is thrown
+        assertThrows(RuntimeException.class, () -> timer.recordLatency(failingSupplier),
+            "Should propagate exception from supplier");
+
+        // Verify timer recorded the attempt
+        assertTrue(meterRegistry.find("execution.latency.milliseconds").timer().count() >= 1,
+            "Timer should record timing even for failed executions");
+    }
 }

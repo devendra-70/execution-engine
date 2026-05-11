@@ -1,6 +1,7 @@
 package com.epam.execution_engine_service.config.health;
 
 import com.epam.execution_engine_service.config.ApplicationProperties;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.actuate.health.Health;
@@ -91,8 +92,8 @@ public class KafkaHealthIndicator implements HealthIndicator {
     public KafkaHealthIndicator(
             KafkaTemplate<String, Object> kafkaTemplate,
             ApplicationProperties applicationProperties) {
-        this.kafkaTemplate = kafkaTemplate;
-        this.applicationProperties = applicationProperties;
+        this.kafkaTemplate = Objects.requireNonNull(kafkaTemplate, "kafkaTemplate cannot be null");
+        this.applicationProperties = Objects.requireNonNull(applicationProperties, "applicationProperties cannot be null");
 
         logger.info("{} initialized with lag-check-enabled={}, check-interval-seconds={}",
                 INDICATOR_NAME,
@@ -181,9 +182,11 @@ public class KafkaHealthIndicator implements HealthIndicator {
      */
     private boolean isProducerInitialized() {
         try {
-            return kafkaTemplate != null
-                    && kafkaTemplate.getDefaultTopic() != null
-                    && !kafkaTemplate.getDefaultTopic().isEmpty();
+            if (kafkaTemplate == null) {
+                return false;
+            }
+            String defaultTopic = kafkaTemplate.getDefaultTopic();
+            return defaultTopic != null && !defaultTopic.isEmpty();
         } catch (Exception e) {
             logger.warn("Error checking producer initialization: {}", e.getMessage());
             return false;

@@ -1,6 +1,7 @@
 package com.epam.execution_engine_service.metrics.persistence;
 
 import com.epam.execution_engine_service.config.ApplicationProperties;
+import java.util.Objects;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.aspectj.lang.JoinPoint;
@@ -128,8 +129,8 @@ public class PersistenceMetricsAspect {
     public PersistenceMetricsAspect(
             MeterRegistry meterRegistry,
             ApplicationProperties applicationProperties) {
-        this.meterRegistry = meterRegistry;
-        this.applicationProperties = applicationProperties;
+        this.meterRegistry = Objects.requireNonNull(meterRegistry, "meterRegistry cannot be null");
+        this.applicationProperties = Objects.requireNonNull(applicationProperties, "applicationProperties cannot be null");
         initializeMetrics();
     }
 
@@ -159,19 +160,19 @@ public class PersistenceMetricsAspect {
     }
 
     /**
-     * Intercepts SubmissionRepository.save() method calls and records failures.
+     * Intercepts SubmissionRepository save operations (both save() and saveAll()) and records failures.
      *
-     * <p><b>Pointcut:</b> Applies to SubmissionRepository.save() method execution
+     * <p><b>Pointcut:</b> Applies to both SubmissionRepository.save() and saveAll() method executions
      * <br><b>Trigger:</b> When DataAccessException is thrown by the save operation
      * <br><b>Action:</b> Increment failure counter and log details
      *
      * <p><b>Method Interception Flow:</b>
      * <ol>
-     *   <li>save() method called on SubmissionRepository bean</li>
-     *   <li>Spring Data JPA attempts to persist SubmissionEntity</li>
+     *   <li>save() or saveAll() method called on SubmissionRepository bean</li>
+     *   <li>Spring Data JPA attempts to persist SubmissionEntity or batch</li>
      *   <li>If successful: aspect not triggered, counter not incremented</li>
      *   <li>If DataAccessException thrown: this method triggered</li>
-     *   <li>Counter incremented by 1</li>
+     *   <li>Counter incremented by 1 (batch failure counts as one event)</li>
      *   <li>Exception propagated to caller (aspect does not swallow it)</li>
      * </ol>
      *
@@ -186,6 +187,7 @@ public class PersistenceMetricsAspect {
      *
      * <p><b>SRS §12 Compliance:</b>
      * Captures database persistence failures for operational alerting and auto-scaling.
+     * Handles both single and batch write failures uniformly.
      *
      * @param joinPoint    AOP join point providing method context
      * @param exception    The DataAccessException thrown by the save operation
@@ -193,7 +195,7 @@ public class PersistenceMetricsAspect {
      * @see org.springframework.dao.DataAccessException
      */
     @AfterThrowing(
-            pointcut = "execution(* com.epam.execution_engine_service.persistence.repository.SubmissionRepository.save(..))",
+            pointcut = "execution(* com.epam.execution_engine_service.persistence.repository.SubmissionRepository.save*(..))",
             throwing = "exception"
     )
     public void recordWriteFailure(JoinPoint joinPoint, DataAccessException exception) {
@@ -202,45 +204,20 @@ public class PersistenceMetricsAspect {
             failureCounter.increment();
 
             // Log failure details for troubleshooting
-            logger.warn("Database write failure recorded: {} | Exception: {} | Message: {}",
+            String methodName = joinPoint.getSignature().getName();
+            logger.warn("Database write failure recorded: {} | Method: {} | Exception: {} | Message: {}",
                     METRIC_NAME,
+                    methodName,
                     exception.getClass().getSimpleName(),
                     exception.getMessage());
 
-            logger.debug("Failure context - Repository method: {}.{}",
+            logger.debug("Failure context - Repository: {}.{}",
                     joinPoint.getTarget().getClass().getSimpleName(),
-                    joinPoint.getSignature().getName());
+                    methodName);
 
         } catch (Exception loggingError) {
             // Ensure aspect does not fail if logging fails
             logger.error("Error processing persistence failure metric", loggingError);
-        }
-    }
-
-    /**
-     * Alternative pointcut for batch save operations (saveAll).
-     *
-     * <p>Intercepts SubmissionRepository.saveAll() to track batch write failures.
-     * Invoked similarly to recordWriteFailure() when DataAccessException occurs.
-     *
-     * @param joinPoint    AOP join point providing method context
-     * @param exception    The DataAccessException thrown by the saveAll operation
-     */
-    @AfterThrowing(
-            pointcut = "execution(* com.epam.execution_engine_service.persistence.repository.SubmissionRepository.saveAll(..))",
-            throwing = "exception"
-    )
-    public void recordBatchWriteFailure(JoinPoint joinPoint, DataAccessException exception) {
-        try {
-            // Increment failure counter (batch failure counts as one event)
-            failureCounter.increment();
-
-            logger.warn("Database batch write failure recorded: {} | Exception: {} | Method: saveAll",
-                    METRIC_NAME,
-                    exception.getClass().getSimpleName());
-
-        } catch (Exception loggingError) {
-            logger.error("Error processing batch persistence failure metric", loggingError);
         }
     }
 }

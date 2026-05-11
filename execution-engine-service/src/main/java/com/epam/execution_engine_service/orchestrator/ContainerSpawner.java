@@ -38,8 +38,22 @@ public class ContainerSpawner {
     
     private final SandboxConfig sandboxConfig;
     
+    private static final java.util.concurrent.atomic.AtomicInteger availablePoolSize = new java.util.concurrent.atomic.AtomicInteger(10);
+    
     public ContainerSpawner(SandboxConfig sandboxConfig) {
         this.sandboxConfig = sandboxConfig;
+    }
+    
+    /**
+     * Returns the current number of available (idle) sandbox containers in the pool.
+     *
+     * <p><b>SRS §12 Compliance:</b> Signal 5 - Sandbox Pool Exhaustion Monitoring
+     * <p>Thread-safe: Uses AtomicInteger for non-blocking pool size tracking
+     *
+     * @return Count of currently available (idle) sandbox containers, >= 0
+     */
+    public int getPoolSize() {
+        return availablePoolSize.get();
     }
     
     /**

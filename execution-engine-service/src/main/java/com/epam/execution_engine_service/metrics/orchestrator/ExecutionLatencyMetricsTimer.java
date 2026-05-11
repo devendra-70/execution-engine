@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -155,8 +156,8 @@ public class ExecutionLatencyMetricsTimer {
     public ExecutionLatencyMetricsTimer(
             MeterRegistry meterRegistry,
             ApplicationProperties applicationProperties) {
-        this.meterRegistry = meterRegistry;
-        this.applicationProperties = applicationProperties;
+        this.meterRegistry = Objects.requireNonNull(meterRegistry, "meterRegistry cannot be null");
+        this.applicationProperties = Objects.requireNonNull(applicationProperties, "applicationProperties cannot be null");
         initializeTimer();
     }
 
@@ -234,6 +235,10 @@ public class ExecutionLatencyMetricsTimer {
     /**
      * Records execution latency for a task with return value.
      *
+     * <p><b>SRS §12 Integration:</b> Signal 6 - Execution Latency Metrics
+     * Uses Micrometer Timer.recordCallable() for automatic percentile tracking (p50, p95, p99).
+     * Percentiles are exposed via Prometheus and monitored by CloudWatch for auto-scaling.
+     *
      * <p><b>Usage Pattern:</b>
      * <pre>
      * {@code
@@ -244,18 +249,28 @@ public class ExecutionLatencyMetricsTimer {
      * }
      * </pre>
      *
+     * <p><b>Timing Window:</b> T0 (callable start) to T1 (return/exception)
+     * <br><b>Percentiles Tracked:</b> p50, p75, p95, p99, p99.9
+     * <br><b>Histogram:</b> Automatic via Micrometer publishPercentiles()
+     *
      * @param <T>      Return type of the task
      * @param task     The executable task (with return value)
      * @return         Result from the task execution
+     * @throws RuntimeException If task execution fails or recording fails
      */
     public <T> T recordLatency(Supplier<T> task) {
-        // Record task execution with automatic timing
-        long startTime = System.nanoTime();
+        // ✅ CRITICAL FIX: Use Timer.recordCallable() for proper percentile histogram tracking
+        // recordCallable() ensures Micrometer captures full timer semantics:
+        // - Automatic start/stop timing
+        // - Exception-aware recording (includes failed executions)
+        // - Percentile histogram computation
+        // - Thread-safe atomic updates
         try {
-            return task.get();
-        } finally {
-            long endTime = System.nanoTime();
-            latencyTimer.record(endTime - startTime, java.util.concurrent.TimeUnit.NANOSECONDS);
+            return latencyTimer.recordCallable(() -> task.get());
+        } catch (Exception e) {
+            logger.warn("Error during latency recording for execution: {}", e.getMessage(), e);
+            // Re-throw to propagate to caller; timing already recorded by recordCallable
+            throw new RuntimeException("Execution latency recording failed", e);
         }
     }
 

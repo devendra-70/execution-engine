@@ -1,6 +1,7 @@
 package com.epam.execution_engine_service.metrics.health;
 
 import com.epam.execution_engine_service.config.ApplicationProperties;
+import java.util.Objects;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
@@ -103,8 +104,8 @@ public class HealthCheckMetricsFilter extends OncePerRequestFilter {
     public HealthCheckMetricsFilter(
             MeterRegistry meterRegistry,
             ApplicationProperties applicationProperties) {
-        this.meterRegistry = meterRegistry;
-        this.applicationProperties = applicationProperties;
+        this.meterRegistry = Objects.requireNonNull(meterRegistry, "meterRegistry cannot be null");
+        this.applicationProperties = Objects.requireNonNull(applicationProperties, "applicationProperties cannot be null");
     }
 
     /**

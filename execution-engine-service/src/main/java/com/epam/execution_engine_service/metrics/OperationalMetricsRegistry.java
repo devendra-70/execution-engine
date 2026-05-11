@@ -5,6 +5,7 @@ import com.epam.execution_engine_service.metrics.orchestrator.ExecutionLatencyMe
 import com.epam.execution_engine_service.metrics.orchestrator.SandboxPoolMetricsGauge;
 import com.epam.execution_engine_service.metrics.persistence.PersistenceMetricsAspect;
 import com.epam.execution_engine_service.metrics.health.HealthCheckMetricsFilter;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -137,11 +138,11 @@ public class OperationalMetricsRegistry {
             PersistenceMetricsAspect persistenceMetricsAspect,
             SandboxPoolMetricsGauge sandboxPoolMetricsGauge,
             ExecutionLatencyMetricsTimer executionLatencyMetricsTimer) {
-        this.applicationProperties = applicationProperties;
-        this.healthCheckMetricsFilter = healthCheckMetricsFilter;
-        this.persistenceMetricsAspect = persistenceMetricsAspect;
-        this.sandboxPoolMetricsGauge = sandboxPoolMetricsGauge;
-        this.executionLatencyMetricsTimer = executionLatencyMetricsTimer;
+        this.applicationProperties = Objects.requireNonNull(applicationProperties, "applicationProperties cannot be null");
+        this.healthCheckMetricsFilter = Objects.requireNonNull(healthCheckMetricsFilter, "healthCheckMetricsFilter cannot be null");
+        this.persistenceMetricsAspect = Objects.requireNonNull(persistenceMetricsAspect, "persistenceMetricsAspect cannot be null");
+        this.sandboxPoolMetricsGauge = Objects.requireNonNull(sandboxPoolMetricsGauge, "sandboxPoolMetricsGauge cannot be null");
+        this.executionLatencyMetricsTimer = Objects.requireNonNull(executionLatencyMetricsTimer, "executionLatencyMetricsTimer cannot be null");
     }
 
     /**
@@ -165,9 +166,7 @@ public class OperationalMetricsRegistry {
     @EventListener(ApplicationReadyEvent.class)
     public void registerOperationalMetrics() {
         boolean metricsEnabled = applicationProperties.getMetrics().isEnabled();
-        logger.info("═══════════════════════════════════════════════════════════════");
-        logger.info("OPERATIONAL METRICS REGISTRY INITIALIZATION");
-        logger.info("═══════════════════════════════════════════════════════════════");
+        logger.info("Operational Metrics Registry Initialization");
         logger.info("Metrics Global Toggle: {}", metricsEnabled ? "ENABLED" : "DISABLED");
 
         if (!metricsEnabled) {
@@ -181,10 +180,8 @@ public class OperationalMetricsRegistry {
         // Ensure all metric implementations are initialized
         ensureMetricImplementationsReady();
 
-        logger.info("═══════════════════════════════════════════════════════════════");
-        logger.info("OPERATIONAL METRICS REGISTRATION COMPLETED SUCCESSFULLY");
+        logger.info("Operational Metrics Registration Completed Successfully");
         logger.info("Available at: GET /actuator/prometheus (for CloudWatch scraping)");
-        logger.info("═══════════════════════════════════════════════════════════════");
     }
 
     /**
@@ -250,19 +247,26 @@ public class OperationalMetricsRegistry {
     private void ensureMetricImplementationsReady() {
         logger.debug("Verifying metric implementation beans...");
 
-        if (healthCheckMetricsFilter != null) {
-            logger.debug("✓ HealthCheckMetricsFilter bean initialized");
+        if (healthCheckMetricsFilter == null) {
+            throw new IllegalStateException("HealthCheckMetricsFilter bean not initialized. SRS §12 Signal 3 unavailable.");
         }
-        if (persistenceMetricsAspect != null) {
-            logger.debug("✓ PersistenceMetricsAspect bean initialized");
-        }
-        if (sandboxPoolMetricsGauge != null) {
-            logger.debug("✓ SandboxPoolMetricsGauge bean initialized");
-        }
-        if (executionLatencyMetricsTimer != null) {
-            logger.debug("✓ ExecutionLatencyMetricsTimer bean initialized");
-        }
+        logger.debug("✓ HealthCheckMetricsFilter bean initialized");
 
-        logger.debug("All metric implementations verified and ready to collect metrics.");
+        if (persistenceMetricsAspect == null) {
+            throw new IllegalStateException("PersistenceMetricsAspect bean not initialized. SRS §12 Signal 4 unavailable.");
+        }
+        logger.debug("✓ PersistenceMetricsAspect bean initialized");
+
+        if (sandboxPoolMetricsGauge == null) {
+            throw new IllegalStateException("SandboxPoolMetricsGauge bean not initialized. SRS §12 Signal 5 unavailable.");
+        }
+        logger.debug("✓ SandboxPoolMetricsGauge bean initialized");
+
+        if (executionLatencyMetricsTimer == null) {
+            throw new IllegalStateException("ExecutionLatencyMetricsTimer bean not initialized. SRS §12 Signal 6 unavailable.");
+        }
+        logger.debug("✓ ExecutionLatencyMetricsTimer bean initialized");
+
+        logger.info("✓ All metric implementations verified and ready to collect metrics.");
     }
 }

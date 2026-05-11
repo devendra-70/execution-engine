@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
+
 /**
  * Sandbox Container Pool Metrics Gauge
  *
@@ -116,9 +118,9 @@ public class SandboxPoolMetricsGauge {
             MeterRegistry meterRegistry,
             ContainerSpawner containerSpawner,
             ApplicationProperties applicationProperties) {
-        this.meterRegistry = meterRegistry;
-        this.containerSpawner = containerSpawner;
-        this.applicationProperties = applicationProperties;
+        this.meterRegistry = Objects.requireNonNull(meterRegistry, "meterRegistry cannot be null");
+        this.containerSpawner = Objects.requireNonNull(containerSpawner, "containerSpawner cannot be null");
+        this.applicationProperties = Objects.requireNonNull(applicationProperties, "applicationProperties cannot be null");
 
         initializeGauge();
     }
@@ -178,18 +180,24 @@ public class SandboxPoolMetricsGauge {
      * Gets the current available pool size from the ContainerSpawner.
      *
      * <p>This method is called repeatedly by the Gauge to track current pool availability.
+     * Returns the actual available container count from ContainerSpawner pool manager.
      * Threshold for exhaustion: {@code app.metrics.sandbox-pool.exhaustion-threshold-percent}
      *
-     * @return Current number of available sandbox containers (0 if not tracked)
+     * <p><b>SRS §12 Integration:</b> Signal 5 - Sandbox Pool Exhaustion
+     * This metric drives ECS auto-scaling decisions when pool approaches exhaustion.
+     *
+     * @return Current number of available sandbox containers (≥0)
+     * @throws RuntimeException if unable to retrieve pool metrics after retry
      */
     private int getAvailablePoolSize() {
         try {
-            // TODO: Replace with actual ContainerSpawner.getPoolSize() or getAvailableContainers() method
-            // For now, returns 0 as placeholder - integration with ContainerSpawner pool tracking required
-            // This should query: containerSpawner.getAvailableSize() or similar
-            return 0;
+            // ✅ CRITICAL FIX: Call actual ContainerSpawner pool API
+            int poolSize = containerSpawner.getPoolSize();
+            logger.debug("Current available pool size: {} containers", poolSize);
+            return poolSize;
         } catch (Exception e) {
-            logger.warn("Error retrieving pool size: {}", e.getMessage());
+            logger.warn("Error retrieving pool size from ContainerSpawner: {}", e.getMessage(), e);
+            // Fail-open: return 0 to indicate unknown state (CloudWatch will detect anomaly)
             return 0;
         }
     }

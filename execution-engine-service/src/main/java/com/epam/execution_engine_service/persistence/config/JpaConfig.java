@@ -8,14 +8,9 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Configuration for JPA, Hibernate, and database connectivity.
- * Implements SRS §12 application configuration:
- * - Batch size: 50 records
- * - Order inserts: true (for FK integrity in batches)
- * - DDL validation: validate mode (schema already exists)
- * - Isolation: READ_COMMITTED per SRS §5.1
- *
- * Configuration is externalized to application.properties to support
- * environment-specific overrides.
+ * Implements SRS §12 application configuration.
+ * Note: @EnableJpaRepositories is declared on ExecutionEngineServiceApplication
+ * to use Spring Boot's auto-configured entityManagerFactory.
  */
 @Configuration
 public class JpaConfig {

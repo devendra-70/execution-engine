@@ -1,6 +1,5 @@
 package com.epam.execution_engine_service.persistence.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -9,17 +8,9 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
  * Configuration for Redis connectivity and serialization.
- * Implements SRS §8 Redis design patterns:
- * - KV pattern: execution:status:{executionId}
- * - Pub/Sub pattern: execution-completed channel
- *
- * Connection factory and host/port are configured via:
- * - spring.redis.host
- * - spring.redis.port
- * (externalized in application.properties for environment-specific config)
- *
- * NOTE: Bean name is explicitly set to avoid conflict with
- * com.epam.execution_engine_service.config.RedisConfig (both default to 'redisConfig').
+ * Implements SRS §8 Redis design patterns.
+ * Note: @EnableRedisRepositories is declared on ExecutionEngineServiceApplication
+ * to resolve multi-module conflict with JPA.
  */
 @Configuration("persistenceRedisConfig")
 public class RedisConfig {

@@ -29,6 +29,7 @@ LOCAL_SETUP_GUIDE.md
 .DS_Store
 Thumbs.db
 documents/SRS.md
+*.txt
 
 
 SRS.md

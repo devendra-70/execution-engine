@@ -4,6 +4,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
+import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.ProducerFactory;
 
 import static org.mockito.Mockito.mock;
@@ -27,5 +28,18 @@ public class TestKafkaProducerConfiguration {
     @Primary
     public ProducerFactory<String, Object> producerFactory() {
         return mock(ProducerFactory.class);
+    }
+
+    /**
+     * Mock ConsumerFactory required by KafkaConfig.kafkaListenerContainerFactory().
+     * KafkaAutoConfiguration is excluded in the test profile, so no ConsumerFactory
+     * is auto-configured. This mock satisfies the dependency without opening
+     * a real broker connection. (EPMICMPCOD-513)
+     */
+    @Bean
+    @Primary
+    @SuppressWarnings("unchecked")
+    public ConsumerFactory<String, Object> consumerFactory() {
+        return mock(ConsumerFactory.class);
     }
 }

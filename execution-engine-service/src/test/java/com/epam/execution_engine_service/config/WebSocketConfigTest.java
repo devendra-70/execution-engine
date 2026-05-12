@@ -95,12 +95,12 @@ class WebSocketConfigTest {
             StompEndpointRegistry registry = mock(StompEndpointRegistry.class);
             StompWebSocketEndpointRegistration endpointReg = mock(StompWebSocketEndpointRegistration.class);
             when(registry.addEndpoint("/ws")).thenReturn(endpointReg);
-            when(endpointReg.setAllowedOriginPatterns("*")).thenReturn(endpointReg);
+            when(endpointReg.setAllowedOrigins("http://localhost:3000", "http://localhost:8080")).thenReturn(endpointReg);
 
             assertThatNoException().isThrownBy(() -> webSocketConfig.registerStompEndpoints(registry));
 
             verify(registry).addEndpoint("/ws");
-            verify(endpointReg).setAllowedOriginPatterns("*");
+            verify(endpointReg).setAllowedOrigins("http://localhost:3000", "http://localhost:8080");
         }
     }
 }

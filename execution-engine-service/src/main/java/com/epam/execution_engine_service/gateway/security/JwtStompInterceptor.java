@@ -62,7 +62,7 @@ public class JwtStompInterceptor implements ChannelInterceptor {
         } catch (Exception e) {
             log.warn("STOMP CONNECT rejected: invalid JWT — {}", e.getMessage());
             throw new MessageDeliveryException(message,
-                    "STOMP CONNECT rejected: " + e.getMessage());
+                    "Authentication failed", e);
         }
 
         String userId = jwtClaimsExtractor.extractUserId(claims);

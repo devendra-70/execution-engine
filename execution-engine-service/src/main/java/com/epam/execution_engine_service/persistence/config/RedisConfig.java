@@ -8,7 +8,6 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
-import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
@@ -71,19 +70,6 @@ public class RedisConfig {
     }
 
     /**
-     * MessageListenerAdapter wrapping ExecutionResultMessageListener.
-     * Delegates Redis Pub/Sub messages to the listener's onMessage() method.
-     *
-     * @param listener the ExecutionResultMessageListener bean
-     * @return configured MessageListenerAdapter
-     */
-    @Bean
-    public MessageListenerAdapter executionResultListenerAdapter(
-            final ExecutionResultMessageListener listener) {
-        return new MessageListenerAdapter(listener, "onMessage");
-    }
-
-    /**
      * RedisMessageListenerContainer — subscribes all ECS instances to the
      * execution-completed Pub/Sub channel on application startup (SRS §8).
      *
@@ -91,20 +77,20 @@ public class RedisConfig {
      * Not active in the "test" profile (TestRedisConfiguration uses a mock
      * RedisConnectionFactory that cannot support a real Pub/Sub subscription).
      *
-     * @param connectionFactory Redis connection factory (shared, per SRS §3.3)
-     * @param adapter           the delegating MessageListenerAdapter
-     * @param topic             the execution-completed ChannelTopic
+     * @param connectionFactory              Redis connection factory (shared, per SRS §3.3)
+     * @param executionResultMessageListener the listener that directly implements MessageListener
+     * @param topic                          the execution-completed ChannelTopic
      * @return configured RedisMessageListenerContainer
      */
     @Bean
     @Profile("!test")
     public RedisMessageListenerContainer redisMessageListenerContainer(
             final RedisConnectionFactory connectionFactory,
-            final MessageListenerAdapter adapter,
+            final ExecutionResultMessageListener executionResultMessageListener,
             final ChannelTopic topic) {
         final RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
-        container.addMessageListener(adapter, topic);
+        container.addMessageListener(executionResultMessageListener, topic);
         return container;
     }
 }

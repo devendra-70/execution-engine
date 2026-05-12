@@ -10,6 +10,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  * Redis Pub/Sub message listener for the {@code execution-completed} channel.
  *
@@ -48,7 +50,7 @@ public class ExecutionResultMessageListener implements MessageListener {
      */
     @Override
     public void onMessage(Message message, byte[] pattern) {
-        String body = new String(message.getBody());
+        String body = new String(message.getBody(), StandardCharsets.UTF_8);
         ExecutionResultEvent event;
 
         try {

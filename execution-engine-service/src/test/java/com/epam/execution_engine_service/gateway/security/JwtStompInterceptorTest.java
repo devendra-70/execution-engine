@@ -104,7 +104,7 @@ class JwtStompInterceptorTest {
 
             assertThatThrownBy(() -> interceptor.preSend(message, channel))
                     .isInstanceOf(MessageDeliveryException.class)
-                    .hasMessageContaining("STOMP CONNECT rejected");
+                    .hasMessageContaining("Authentication failed");
 
             verifyNoInteractions(jwtClaimsExtractor);
         }

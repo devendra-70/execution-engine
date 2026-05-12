@@ -108,9 +108,9 @@ public class ExecutionResultPersistenceService {
         isolation = Isolation.READ_COMMITTED,
         readOnly = true
     )
-    public long countByUserId(String userId) {
-        if (userId == null || userId.isBlank()) {
-            throw new IllegalArgumentException("userId cannot be null or blank");
+    public long countByUserId(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId must be a positive number");
         }
 
         return submissionRepository.countByUserId(userId);
@@ -127,9 +127,9 @@ public class ExecutionResultPersistenceService {
         isolation = Isolation.READ_COMMITTED,
         readOnly = true
     )
-    public long countByProblemId(String problemId) {
-        if (problemId == null || problemId.isBlank()) {
-            throw new IllegalArgumentException("problemId cannot be null or blank");
+    public long countByProblemId(Long problemId) {
+        if (problemId == null || problemId <= 0) {
+            throw new IllegalArgumentException("problemId must be a positive number");
         }
 
         return submissionRepository.countByProblemId(problemId);

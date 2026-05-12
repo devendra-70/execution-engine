@@ -155,8 +155,8 @@ class SubmissionTestResultEntityTest {
         void testSubmissionRelationship() {
             SubmissionEntity submission = SubmissionEntity.builder()
                 .executionId(executionId)
-                .userId("user1")
-                .problemId("problem1")
+                .userId(1L)
+                .problemId(1L)
                 .language("JAVA")
                 .mode("SUBMIT")
                 .verdict("PASSED")

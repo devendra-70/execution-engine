@@ -2,6 +2,7 @@ package com.epam.execution_engine_service;
 
 import com.epam.execution_engine_service.config.ApplicationProperties;
 import com.epam.execution_engine_service.gateway.ExecutionController;
+import com.epam.execution_engine_service.gateway.ExecutionStatusService;
 import com.epam.execution_engine_service.gateway.exception.AuthenticationException;
 import com.epam.execution_engine_service.gateway.exception.ExecutionRegistrationException;
 import com.epam.execution_engine_service.gateway.exception.RateLimitException;
@@ -88,6 +89,9 @@ public class ExecutionEngineServiceTests {
     private IpAddressExtractor ipAddressExtractor;
     
     @Mock
+    private ExecutionStatusService executionStatusService;
+    
+    @Mock
     private HttpServletRequest httpServletRequest;
     
     @Mock
@@ -116,7 +120,7 @@ public class ExecutionEngineServiceTests {
                 kafkaTemplate
         );
         
-        executionController = new ExecutionController(executionRegistrationService, ipAddressExtractor);
+        executionController = new ExecutionController(executionRegistrationService, executionStatusService, ipAddressExtractor);
         
         // Setup common mock returns for Redis
         when(redisTemplate.opsForValue()).thenReturn(valueOps);

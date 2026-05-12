@@ -2,6 +2,7 @@ package com.epam.execution_engine_service.util;
 
 import com.epam.execution_engine_service.gateway.exception.ValidationException;
 import com.epam.execution_engine_service.persistence.entity.ExecutionRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Component;
  * This class focuses on custom business logic validation (SRS Section 2.2)
  */
 @Component
+@Slf4j
 public class RequestValidator {
     
     /**

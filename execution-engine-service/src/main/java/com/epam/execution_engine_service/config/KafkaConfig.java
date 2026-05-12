@@ -1,22 +1,13 @@
 package com.epam.execution_engine_service.config;
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.core.ProducerFactory;
-
 /**
- * Kafka configuration
- * Configures KafkaTemplate for publishing ExecutionTaskEvent messages
+ * DEPRECATED: Kafka configuration has been consolidated into 
+ * persistence.config.KafkaConfig to avoid bean naming conflicts.
+ * 
+ * This file is kept for reference but is no longer used.
+ * All Kafka configuration (producer + listener) is now in:
+ * com.epam.execution_engine_service.persistence.config.KafkaConfig
  */
-@Configuration
+@Deprecated(forRemoval = true)
 public class KafkaConfig {
-    
-    @Bean
-    public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
-        KafkaTemplate<String, Object> template = new KafkaTemplate<>(producerFactory);
-        // Default: blocking send (synchronous)
-        template.setDefaultTopic("execution-tasks");
-        return template;
-    }
 }

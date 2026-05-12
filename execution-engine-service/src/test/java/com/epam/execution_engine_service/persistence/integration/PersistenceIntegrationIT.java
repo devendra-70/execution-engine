@@ -78,13 +78,13 @@ public class PersistenceIntegrationIT {
         executionId = UUID.randomUUID();
         testSubmission = SubmissionEntity.builder()
             .executionId(executionId)
-            .userId("testuser")
-            .problemId("problem-123")
+            .userId(1L)  // Changed from "testuser" to Long
+            .problemId(123L)  // Changed from "problem-123" to Long
             .language("java")
             .mode("SUBMIT")
             .verdict("ACCEPTED")
             .status("COMPLETED")
-            .score(100)
+            .score(100.0)  // Changed from Integer to Double
             .totalRuntimeMs(500L)
             .memoryBytes(1024000L)
             .rawOutput("expected output")
@@ -105,8 +105,8 @@ public class PersistenceIntegrationIT {
         // Assert
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getExecutionId()).isEqualTo(executionId);
-        assertThat(saved.getUserId()).isEqualTo("testuser");
-        assertThat(saved.getProblemId()).isEqualTo("problem-123");
+        assertThat(saved.getUserId()).isEqualTo(1L);
+        assertThat(saved.getProblemId()).isEqualTo(123L);
     }
 
     @Test
@@ -118,8 +118,8 @@ public class PersistenceIntegrationIT {
 
         SubmissionEntity duplicate = SubmissionEntity.builder()
             .executionId(executionId)  // Same execution ID
-            .userId("different_user")
-            .problemId("prob-456")
+            .userId(2L)  // Changed from "different_user" to Long
+            .problemId(456L)  // Changed from "prob-456" to Long
             .language("python")
             .mode("RUN")
             .verdict("FAILED")
@@ -207,7 +207,7 @@ public class PersistenceIntegrationIT {
 
         // Assert
         assertThat(found).isPresent();
-        assertThat(found.get().getUserId()).isEqualTo("testuser");
+        assertThat(found.get().getUserId()).isEqualTo(1L);
     }
 
     @Test
@@ -260,8 +260,8 @@ public class PersistenceIntegrationIT {
         submissionRepository.save(testSubmission);
         SubmissionEntity submission2 = SubmissionEntity.builder()
             .executionId(UUID.randomUUID())
-            .userId("testuser")
-            .problemId("problem-456")
+            .userId(1L)  // Same userId as testSubmission
+            .problemId(456L)
             .language("python")
             .mode("RUN")
             .verdict("FAILED")
@@ -275,7 +275,7 @@ public class PersistenceIntegrationIT {
         entityManager.flush();
 
         // Act
-        long count = submissionRepository.countByUserId("testuser");
+        long count = submissionRepository.countByUserId(1L);
 
         // Assert
         assertThat(count).isEqualTo(2);
@@ -288,8 +288,8 @@ public class PersistenceIntegrationIT {
         submissionRepository.save(testSubmission);
         SubmissionEntity submission2 = SubmissionEntity.builder()
             .executionId(UUID.randomUUID())
-            .userId("user2")
-            .problemId("problem-123")  // Same problem
+            .userId(2L)
+            .problemId(123L)  // Same problem
             .language("cpp")
             .mode("SUBMIT")
             .verdict("PASSED")
@@ -303,7 +303,7 @@ public class PersistenceIntegrationIT {
         entityManager.flush();
 
         // Act
-        long count = submissionRepository.countByProblemId("problem-123");
+        long count = submissionRepository.countByProblemId(123L);
 
         // Assert
         assertThat(count).isEqualTo(2);
@@ -365,7 +365,7 @@ public class PersistenceIntegrationIT {
         entityManager.flush();
 
         // Act - query that should use idx_submissions_user_created_at
-        long count = submissionRepository.countByUserId("testuser");
+        long count = submissionRepository.countByUserId(1L);
 
         // Assert
         assertThat(count).isGreaterThanOrEqualTo(1);

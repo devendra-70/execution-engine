@@ -6,16 +6,18 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 
 /**
- * JWT Token Provider
+ * JWT Token Provider (DEPRECATED - use util.JwtTokenProvider instead)
+ * 
+ * This class is kept for backward compatibility but is no longer registered as a Spring component.
+ * All JWT token validation should use com.epam.execution_engine_service.util.JwtTokenProvider.
+ * 
  * Handles JWT token validation and claims extraction
  * Uses HMAC-SHA256 with configurable secret key
  */
-@Component
 @RequiredArgsConstructor
 public class JwtTokenProvider {
     

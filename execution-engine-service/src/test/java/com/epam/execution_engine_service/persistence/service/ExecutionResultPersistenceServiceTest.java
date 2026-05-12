@@ -52,13 +52,13 @@ class ExecutionResultPersistenceServiceTest {
         executionId = UUID.randomUUID();
         event = ExecutionResultEvent.builder()
             .executionId(executionId)
-            .userId("user123")
-            .problemId("problem456")
+            .userId(123L)
+            .problemId(456L)
             .language("JAVA")
             .mode("SUBMIT")
             .verdict("PASSED")
             .status("COMPLETED")
-            .score(100)
+            .score(100.0)
             .totalRuntimeMs(1500L)
             .memoryBytes(2048000L)
             .rawOutput("Output")
@@ -72,13 +72,13 @@ class ExecutionResultPersistenceServiceTest {
         savedEntity = SubmissionEntity.builder()
             .id(1L)
             .executionId(executionId)
-            .userId("user123")
-            .problemId("problem456")
+            .userId(123L)
+            .problemId(456L)
             .language("JAVA")
             .mode("SUBMIT")
             .verdict("PASSED")
             .status("COMPLETED")
-            .score(100)
+            .score(100.0)
             .totalRuntimeMs(1500L)
             .memoryBytes(2048000L)
             .rawOutput("Output")
@@ -130,8 +130,8 @@ class ExecutionResultPersistenceServiceTest {
             // Arrange
             SubmissionEntity mappedEntity = SubmissionEntity.builder()
                 .executionId(executionId)
-                .userId("user123")
-                .problemId("problem456")
+                .userId(123L)
+                .problemId(456L)
                 .language("JAVA")
                 .mode("SUBMIT")
                 .verdict("PASSED")
@@ -145,8 +145,8 @@ class ExecutionResultPersistenceServiceTest {
             SubmissionEntity entityWithId = SubmissionEntity.builder()
                 .id(999L)
                 .executionId(executionId)
-                .userId("user123")
-                .problemId("problem456")
+                .userId(123L)
+                .problemId(456L)
                 .language("JAVA")
                 .mode("SUBMIT")
                 .verdict("PASSED")
@@ -179,8 +179,8 @@ class ExecutionResultPersistenceServiceTest {
 
             SubmissionEntity mappedEntity = SubmissionEntity.builder()
                 .executionId(executionId)
-                .userId("user123")
-                .problemId("problem456")
+                .userId(123L)
+                .problemId(456L)
                 .language("JAVA")
                 .mode("SUBMIT")
                 .verdict("PASSED")
@@ -300,59 +300,63 @@ class ExecutionResultPersistenceServiceTest {
         @DisplayName("Should count submissions by userId")
         void testCountByUserId() {
             // Arrange
-            when(submissionRepository.countByUserId("user123")).thenReturn(5L);
+            when(submissionRepository.countByUserId(123L)).thenReturn(5L);
 
             // Act
-            long count = service.countByUserId("user123");
+            long count = service.countByUserId(123L);
 
             // Assert
             assertEquals(5L, count);
-            verify(submissionRepository, times(1)).countByUserId("user123");
+            verify(submissionRepository, times(1)).countByUserId(123L);
         }
 
         @Test
         @DisplayName("Should return 0 for user with no submissions")
         void testCountByUserIdZero() {
             // Arrange
-            when(submissionRepository.countByUserId("unknown_user")).thenReturn(0L);
+            when(submissionRepository.countByUserId(999L)).thenReturn(0L);
 
             // Act
-            long count = service.countByUserId("unknown_user");
+            long count = service.countByUserId(999L);
 
             // Assert
             assertEquals(0L, count);
         }
 
         @Test
-        @DisplayName("Should throw exception for null or blank userId")
+        @DisplayName("Should throw exception for null or invalid userId")
         void testCountByUserIdNullThrows() {
             assertThrows(IllegalArgumentException.class,
                 () -> service.countByUserId(null));
             assertThrows(IllegalArgumentException.class,
-                () -> service.countByUserId(""));
+                () -> service.countByUserId(0L));
+            assertThrows(IllegalArgumentException.class,
+                () -> service.countByUserId(-1L));
         }
 
         @Test
         @DisplayName("Should count submissions by problemId")
         void testCountByProblemId() {
             // Arrange
-            when(submissionRepository.countByProblemId("problem456")).thenReturn(3L);
+            when(submissionRepository.countByProblemId(456L)).thenReturn(3L);
 
             // Act
-            long count = service.countByProblemId("problem456");
+            long count = service.countByProblemId(456L);
 
             // Assert
             assertEquals(3L, count);
-            verify(submissionRepository, times(1)).countByProblemId("problem456");
+            verify(submissionRepository, times(1)).countByProblemId(456L);
         }
 
         @Test
-        @DisplayName("Should throw exception for null or blank problemId")
+        @DisplayName("Should throw exception for null or invalid problemId")
         void testCountByProblemIdNullThrows() {
             assertThrows(IllegalArgumentException.class,
                 () -> service.countByProblemId(null));
             assertThrows(IllegalArgumentException.class,
-                () -> service.countByProblemId(""));
+                () -> service.countByProblemId(0L));
+            assertThrows(IllegalArgumentException.class,
+                () -> service.countByProblemId(-1L));
         }
     }
 

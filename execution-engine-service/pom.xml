@@ -113,6 +113,12 @@
         <!-- Spring Data Redis (EPMICMPCOD-462, §8) already declared above -->
         <!-- Spring Kafka (§5.2 Kafka offset ACK semantics) already declared above -->
 
+        <!-- Spring WebSocket / STOMP (EPMICMPCOD-342, §3.2) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- Flyway: Database migration (for V001__create_persistence_schema.sql) -->
         <dependency>
             <groupId>org.flywaydb</groupId>

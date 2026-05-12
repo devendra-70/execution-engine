@@ -89,7 +89,7 @@ public class SubmissionTestResultEntity {
     /**
      * Timestamp when record was created in database.
      */
-    @Column(name = "created_at", nullable = false, columnDefinition = "TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP")
+    @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
     /**

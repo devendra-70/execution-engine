@@ -3,6 +3,7 @@ package com.epam.execution_engine_service.persistence.config;
 import com.epam.execution_engine_service.gateway.websocket.ExecutionResultMessageListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
@@ -87,6 +88,8 @@ public class RedisConfig {
      * execution-completed Pub/Sub channel on application startup (SRS §8).
      *
      * Subscription is established before the application serves HTTP traffic.
+     * Not active in the "test" profile (TestRedisConfiguration uses a mock
+     * RedisConnectionFactory that cannot support a real Pub/Sub subscription).
      *
      * @param connectionFactory Redis connection factory (shared, per SRS §3.3)
      * @param adapter           the delegating MessageListenerAdapter
@@ -94,6 +97,7 @@ public class RedisConfig {
      * @return configured RedisMessageListenerContainer
      */
     @Bean
+    @Profile("!test")
     public RedisMessageListenerContainer redisMessageListenerContainer(
             final RedisConnectionFactory connectionFactory,
             final MessageListenerAdapter adapter,

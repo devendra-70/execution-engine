@@ -22,6 +22,7 @@ documents/architecture_document/*
 # Local reports
 REFACTOR_REPORT.md
 code-review-report.md
+ORCHESTRATOR_PIPELINE_SUMMARY.md
 
 LOCAL_SETUP_GUIDE.md
 

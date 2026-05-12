@@ -1,25 +1,23 @@
 package com.epam.execution_engine_service.persistence.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.epam.execution_engine_service.gateway.websocket.ExecutionResultMessageListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
  * Configuration for Redis connectivity and serialization.
- * Implements SRS §8 Redis design patterns:
- * - KV pattern: execution:status:{executionId}
- * - Pub/Sub pattern: execution-completed channel
+ * Implements SRS §8 Redis design patterns.
+ * Note: @EnableRedisRepositories is declared on ExecutionEngineServiceApplication
+ * to resolve multi-module conflict with JPA.
  *
- * Connection factory and host/port are configured via:
- * - spring.redis.host
- * - spring.redis.port
- * (externalized in application.properties for environment-specific config)
- *
- * NOTE: Bean name is explicitly set to avoid conflict with
- * com.epam.execution_engine_service.config.RedisConfig (both default to 'redisConfig').
+ * EPMICMPCOD-342: adds RedisMessageListenerContainer subscribed to
+ * the execution-completed Pub/Sub channel (SRS §8).
  */
 @Configuration("persistenceRedisConfig")
 public class RedisConfig {
@@ -60,5 +58,39 @@ public class RedisConfig {
         template.afterPropertiesSet();
 
         return template;
+    }
+
+    /**
+     * Redis Pub/Sub channel topic for execution-completed broadcasts (SRS §8).
+     * All ECS instances subscribe to this channel on startup.
+     */
+    @Bean
+    public ChannelTopic executionCompletedTopic() {
+        return new ChannelTopic("execution-completed");
+    }
+
+    /**
+     * RedisMessageListenerContainer — subscribes all ECS instances to the
+     * execution-completed Pub/Sub channel on application startup (SRS §8).
+     *
+     * Subscription is established before the application serves HTTP traffic.
+     * Not active in the "test" profile (TestRedisConfiguration uses a mock
+     * RedisConnectionFactory that cannot support a real Pub/Sub subscription).
+     *
+     * @param connectionFactory              Redis connection factory (shared, per SRS §3.3)
+     * @param executionResultMessageListener the listener that directly implements MessageListener
+     * @param topic                          the execution-completed ChannelTopic
+     * @return configured RedisMessageListenerContainer
+     */
+    @Bean
+    @Profile("!test")
+    public RedisMessageListenerContainer redisMessageListenerContainer(
+            final RedisConnectionFactory connectionFactory,
+            final ExecutionResultMessageListener executionResultMessageListener,
+            final ChannelTopic topic) {
+        final RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+        container.addMessageListener(executionResultMessageListener, topic);
+        return container;
     }
 }

@@ -3,10 +3,15 @@ package com.epam.execution_engine_service.controller;
 import com.epam.execution_engine_service.config.SecurityTestConfig;
 import com.epam.execution_engine_service.config.TestKafkaProducerConfiguration;
 import com.epam.execution_engine_service.config.TestRedisConfiguration;
+import com.epam.execution_engine_service.config.TestServiceConfiguration;
 import com.epam.execution_engine_service.dto.ExecutionRequest;
+import com.epam.execution_engine_service.dto.ExecutionTaskEvent;
 import com.epam.execution_engine_service.dto.ErrorResponse;
 import com.epam.execution_engine_service.persistence.repository.ExecutionStatusRepository;
+import com.epam.execution_engine_service.service.ExecutionRegistrationResponse;
+import com.epam.execution_engine_service.service.ExecutionRegistrationService;
 import com.epam.execution_engine_service.service.RateLimiterService;
+import com.epam.execution_engine_service.service.RateLimitingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +27,8 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.*;
@@ -44,7 +51,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({SecurityTestConfig.class, TestRedisConfiguration.class, TestKafkaProducerConfiguration.class})
+@Import({SecurityTestConfig.class, TestRedisConfiguration.class, TestKafkaProducerConfiguration.class, TestServiceConfiguration.class})
 @DisplayName("ExecutionController Integration Tests")
 class ExecutionControllerIntegrationTest {
 
@@ -58,10 +65,16 @@ class ExecutionControllerIntegrationTest {
     private RateLimiterService rateLimiterService;
 
     @MockBean
+    private RateLimitingService rateLimitingService;
+
+    @MockBean
     private ExecutionStatusRepository executionStatusRepository;
 
     @MockBean
-    private KafkaTemplate<String, Object> kafkaTemplate;
+    private ExecutionRegistrationService executionRegistrationService;
+
+    @MockBean
+    private KafkaTemplate<String, ExecutionTaskEvent> kafkaTemplate;
 
     private ExecutionRequest validRequest;
 
@@ -82,6 +95,20 @@ class ExecutionControllerIntegrationTest {
         // Mock returns the ExecutionStatus that was saved
         when(executionStatusRepository.save(ArgumentMatchers.any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        
+        // Configure ExecutionRegistrationService mock (SRS Section 3.2: Submission endpoint)
+        // Mock returns a response with executionId and PENDING status
+        when(executionRegistrationService.registerExecution(
+                ArgumentMatchers.any(),
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> {
+                    return ExecutionRegistrationResponse.builder()
+                            .executionId(UUID.randomUUID().toString())
+                            .status("PENDING")
+                            .submittedAt(Instant.now().toString())
+                            .build();
+                });
         
         // Configure Kafka mock (SRS Section 7.1: Kafka publishing)
         // KafkaTemplate is provided by TestKafkaProducerConfiguration as a mock bean

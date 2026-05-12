@@ -36,7 +36,7 @@ public interface SubmissionRepository extends JpaRepository<SubmissionEntity, Lo
      * @return count of submissions by this user
      */
     @Query("SELECT COUNT(s) FROM SubmissionEntity s WHERE s.userId = :userId")
-    long countByUserId(@Param("userId") String userId);
+    long countByUserId(@Param("userId") Long userId);
 
     /**
      * Count submissions for a specific problem.
@@ -46,5 +46,5 @@ public interface SubmissionRepository extends JpaRepository<SubmissionEntity, Lo
      * @return count of submissions for this problem
      */
     @Query("SELECT COUNT(s) FROM SubmissionEntity s WHERE s.problemId = :problemId")
-    long countByProblemId(@Param("problemId") String problemId);
+    long countByProblemId(@Param("problemId") Long problemId);
 }

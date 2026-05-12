@@ -2,6 +2,7 @@ package com.epam.execution_engine_service.persistence.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -39,8 +40,9 @@ public class SubmissionTestResultEntity {
     /**
      * Foreign key to parent SubmissionEntity.executionId.
      * Indexed for join performance (SRS §9).
+     * H2 compatibility: stored as VARCHAR(36) for UUID string representation.
      */
-    @Column(name = "execution_id", nullable = false, columnDefinition = "UUID")
+    @Column(name = "execution_id", nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID executionId;
 
     /**
@@ -89,6 +91,7 @@ public class SubmissionTestResultEntity {
     /**
      * Timestamp when record was created in database.
      */
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -107,6 +110,7 @@ public class SubmissionTestResultEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
         name = "execution_id",
+        referencedColumnName = "execution_id",
         insertable = false,
         updatable = false,
         foreignKey = @ForeignKey(name = "fk_submission_test_results_execution")

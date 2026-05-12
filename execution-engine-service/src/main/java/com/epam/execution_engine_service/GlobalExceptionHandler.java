@@ -1,6 +1,7 @@
 package com.epam.execution_engine_service;
 
 import com.epam.execution_engine_service.dto.ErrorResponse;
+import java.util.List;
 import com.epam.execution_engine_service.gateway.exception.AuthenticationException;
 import com.epam.execution_engine_service.gateway.exception.ExecutionRegistrationException;
 import com.epam.execution_engine_service.gateway.exception.RateLimitException;
@@ -95,15 +96,15 @@ public class GlobalExceptionHandler {
                 ex.getMessage()
         ));
     }
-    
-    /**
+
+       /**
      * Handle JSR-380 bean validation failures.
      * Returns HTTP 400 Bad Request with field-level error details.
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex) {
-        
+       
         List<ErrorResponse.FieldErrorDetail> fieldErrors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -111,7 +112,7 @@ public class GlobalExceptionHandler {
                         error.getField(),
                         error.getDefaultMessage()))
                 .collect(Collectors.toList());
-
+ 
         ErrorResponse response = ErrorResponse.builder()
                 .timestamp(Instant.now())
                 .status(400)
@@ -119,13 +120,13 @@ public class GlobalExceptionHandler {
                 .message("Request payload validation failed. See fieldErrors for details.")
                 .fieldErrors(fieldErrors)
                 .build();
-
-        log.warn("Validation failed: fields={}", 
+ 
+        log.warn("Validation failed: fields={}",
                 fieldErrors.stream().map(ErrorResponse.FieldErrorDetail::getField).collect(Collectors.toList()));
-
+ 
         return ResponseEntity.badRequest().body(response);
     }
-
+    
     /**
      * Handle generic exceptions
      * Returns HTTP 500 Internal Server Error

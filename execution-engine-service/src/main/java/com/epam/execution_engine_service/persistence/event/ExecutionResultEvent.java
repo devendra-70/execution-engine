@@ -36,12 +36,12 @@ public class ExecutionResultEvent {
     /**
      * User who submitted the code.
      */
-    private String userId;
+    private Long userId;
 
     /**
      * Problem being solved.
      */
-    private String problemId;
+    private Long problemId;
 
     /**
      * Programming language of submitted code.
@@ -66,7 +66,7 @@ public class ExecutionResultEvent {
     /**
      * Score (nullable, awarded based on test case pass rate).
      */
-    private Integer score;
+    private Double score;
 
     /**
      * Total runtime in milliseconds.

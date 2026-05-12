@@ -2,6 +2,7 @@ package com.epam.execution_engine_service.persistence.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -42,21 +43,22 @@ public class SubmissionEntity {
     /**
      * Idempotent idempotency key (UUID from ExecutionResultEvent.executionId).
      * Prevents duplicate submissions for the same execution.
+     * H2 compatibility: stored as VARCHAR(36) for UUID string representation.
      */
-    @Column(name = "execution_id", nullable = false, unique = true, columnDefinition = "UUID")
+    @Column(name = "execution_id", nullable = false, unique = true, columnDefinition = "VARCHAR(36)")
     private UUID executionId;
 
     /**
      * User identifier (from ExecutionResultEvent.userId).
      */
-    @Column(name = "user_id", nullable = false, length = 64)
-    private String userId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     /**
      * Problem identifier (from ExecutionResultEvent.problemId).
      */
-    @Column(name = "problem_id", nullable = false, length = 128)
-    private String problemId;
+    @Column(name = "problem_id", nullable = false)
+    private Long problemId;
 
     /**
      * Programming language (from ExecutionResultEvent.language).
@@ -87,7 +89,7 @@ public class SubmissionEntity {
      * Score (nullable, from ExecutionResultEvent.score).
      */
     @Column(name = "score")
-    private Integer score;
+    private Double score;
 
     /**
      * Total runtime in milliseconds (from ExecutionResultEvent.totalRuntimeMs).
@@ -134,6 +136,7 @@ public class SubmissionEntity {
     /**
      * Timestamp when record was created in database.
      */
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 

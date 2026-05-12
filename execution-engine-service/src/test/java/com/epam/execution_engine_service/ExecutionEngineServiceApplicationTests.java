@@ -3,6 +3,8 @@ package com.epam.execution_engine_service;
 import com.epam.execution_engine_service.config.SecurityTestConfig;
 import com.epam.execution_engine_service.config.TestKafkaProducerConfiguration;
 import com.epam.execution_engine_service.config.TestRedisConfiguration;
+import com.epam.execution_engine_service.config.TestServiceConfiguration;
+import com.epam.execution_engine_service.service.RateLimitingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -19,11 +21,14 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootTest
 @ActiveProfiles("test")
-@Import({SecurityTestConfig.class, TestRedisConfiguration.class, TestKafkaProducerConfiguration.class})
+@Import({SecurityTestConfig.class, TestRedisConfiguration.class, TestKafkaProducerConfiguration.class, TestServiceConfiguration.class})
 class ExecutionEngineServiceApplicationTests {
 
     @MockBean
     private KafkaTemplate<String, Object> kafkaTemplate;
+
+    @MockBean
+    private RateLimitingService rateLimitingService;
 
     @Test
     void contextLoads() {

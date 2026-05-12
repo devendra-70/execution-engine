@@ -29,13 +29,13 @@ class SubmissionEntityTest {
         executionId = UUID.randomUUID();
         entity = SubmissionEntity.builder()
             .executionId(executionId)
-            .userId("user123")
-            .problemId("problem456")
+            .userId(123L)
+            .problemId(456L)
             .language("JAVA")
             .mode("SUBMIT")
             .verdict("PASSED")
             .status("COMPLETED")
-            .score(100)
+            .score(100.0)
             .totalRuntimeMs(1500L)
             .memoryBytes(2048000L)
             .rawOutput("Output text")
@@ -55,8 +55,8 @@ class SubmissionEntityTest {
         @DisplayName("Should construct entity with all required fields")
         void testConstructionWithAllFields() {
             assertNotNull(entity.getExecutionId());
-            assertEquals("user123", entity.getUserId());
-            assertEquals("problem456", entity.getProblemId());
+            assertEquals(123L, entity.getUserId());
+            assertEquals(456L, entity.getProblemId());
             assertEquals("JAVA", entity.getLanguage());
             assertEquals("SUBMIT", entity.getMode());
         }
@@ -97,15 +97,15 @@ class SubmissionEntityTest {
         @Test
         @DisplayName("Should store and retrieve userId")
         void testUserIdMapping() {
-            entity.setUserId("user999");
-            assertEquals("user999", entity.getUserId());
+            entity.setUserId(999L);
+            assertEquals(999L, entity.getUserId());
         }
 
         @Test
         @DisplayName("Should store and retrieve problemId")
         void testProblemIdMapping() {
-            entity.setProblemId("problem999");
-            assertEquals("problem999", entity.getProblemId());
+            entity.setProblemId(999L);
+            assertEquals(999L, entity.getProblemId());
         }
 
         @Test
@@ -251,13 +251,13 @@ class SubmissionEntityTest {
         void testEquality() {
             SubmissionEntity other = SubmissionEntity.builder()
                 .executionId(executionId)
-                .userId("user123")
-                .problemId("problem456")
+                .userId(123L)
+                .problemId(456L)
                 .language("JAVA")
                 .mode("SUBMIT")
                 .verdict("PASSED")
                 .status("COMPLETED")
-                .score(100)
+                .score(100.0)
                 .totalRuntimeMs(1500L)
                 .memoryBytes(2048000L)
                 .rawOutput("Output text")
@@ -291,7 +291,7 @@ class SubmissionEntityTest {
             String str = entity.toString();
 
             assertNotNull(str);
-            assertTrue(str.contains("user123") || str.contains("PASSED"));
+            assertTrue(str.contains("123") || str.contains("PASSED"));
         }
     }
 
@@ -304,8 +304,8 @@ class SubmissionEntityTest {
         void testBuilderCreatesValidEntity() {
             SubmissionEntity builtEntity = SubmissionEntity.builder()
                 .executionId(UUID.randomUUID())
-                .userId("user123")
-                .problemId("problem456")
+                .userId(123L)
+                .problemId(456L)
                 .language("JAVA")
                 .mode("SUBMIT")
                 .verdict("PASSED")
@@ -317,7 +317,7 @@ class SubmissionEntityTest {
                 .build();
 
             assertNotNull(builtEntity.getExecutionId());
-            assertEquals("user123", builtEntity.getUserId());
+            assertEquals(123L, builtEntity.getUserId());
         }
 
         @Test
@@ -325,8 +325,8 @@ class SubmissionEntityTest {
         void testBuilderMinimalFields() {
             SubmissionEntity minimal = SubmissionEntity.builder()
                 .executionId(UUID.randomUUID())
-                .userId("user")
-                .problemId("problem")
+                .userId(1L)
+                .problemId(1L)
                 .language("JAVA")
                 .mode("SUBMIT")
                 .verdict("PASSED")
@@ -338,7 +338,7 @@ class SubmissionEntityTest {
                 .build();
 
             assertNotNull(minimal);
-            assertEquals("user", minimal.getUserId());
+            assertEquals(1L, minimal.getUserId());
         }
     }
 }

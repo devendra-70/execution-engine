@@ -677,7 +677,184 @@
           }
         }
       ]
+    },
+    {
+      "name": "7. Execution Status — REST Fallback (EPMICMPCOD-538)",
+      "item": [
+        {
+          "name": "Get Status — PENDING (after submit)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response is JSON', function () {",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "pm.test('Body contains executionId', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.executionId).to.be.a('string');",
+                  "});",
+                  "pm.test('Status is PENDING', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('PENDING');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/executions/{{execution_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "executions", "{{execution_id}}", "status"]
+            },
+            "description": "REST fallback status endpoint (SRS §3.2, §8).\nPolls Redis KV key execution:status:{executionId}.\n\nRun '2. Submit Execution' first — it auto-sets the `execution_id` variable.\n\nExpected (before execution completes): 200 OK\n{\n  \"executionId\": \"<uuid>\",\n  \"status\": \"PENDING\",\n  \"submittedAtMs\": 1715000000000\n}\n\nExpected (after execution completes): 200 OK with full ExecutionResultEvent\n{\n  \"executionId\": \"<uuid>\",\n  \"verdict\": \"PASSED\",\n  \"score\": 100,\n  \"totalRuntimeMs\": 42,\n  \"memoryBytes\": 1024,\n  \"testCaseResults\": [...]\n}\n\nTTL: app.redis.status-ttl-seconds (default 600 s). After expiry → 404."
+          },
+          "response": [
+            {
+              "name": "200 OK — PENDING state",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"executionId\": \"3f7a1b2c-4d5e-6f7a-8b9c-0d1e2f3a4b5c\",\n  \"status\": \"PENDING\",\n  \"submittedAtMs\": 1715420700000,\n  \"userId\": \"user-123\",\n  \"problemId\": \"two-sum\",\n  \"language\": \"java21\",\n  \"mode\": \"RUN\"\n}"
+            },
+            {
+              "name": "200 OK — Completed ExecutionResultEvent",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"executionId\": \"3f7a1b2c-4d5e-6f7a-8b9c-0d1e2f3a4b5c\",\n  \"userId\": \"user-123\",\n  \"problemId\": \"two-sum\",\n  \"verdict\": \"PASSED\",\n  \"score\": 100,\n  \"totalRuntimeMs\": 42,\n  \"memoryBytes\": 131072,\n  \"testCaseResults\": [\n    { \"testCaseId\": \"tc-1\", \"verdict\": \"PASSED\", \"runtimeMs\": 21 },\n    { \"testCaseId\": \"tc-2\", \"verdict\": \"PASSED\", \"runtimeMs\": 21 }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Status — Not Found (expired or unknown executionId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test('Response has error field', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.error).to.be.a('string');",
+                  "    pm.expect(json.executionId).to.eql('00000000-0000-0000-0000-000000000000');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/executions/00000000-0000-0000-0000-000000000000/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "executions", "00000000-0000-0000-0000-000000000000", "status"]
+            },
+            "description": "Query a non-existent executionId — Redis key is absent (TTL expired or unknown ID).\n\nExpected: 404 Not Found\n{\n  \"error\": \"Execution not found or result expired\",\n  \"executionId\": \"00000000-0000-0000-0000-000000000000\"\n}"
+          },
+          "response": [
+            {
+              "name": "404 Not Found — key absent",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n  \"error\": \"Execution not found or result expired\",\n  \"executionId\": \"00000000-0000-0000-0000-000000000000\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Status — No Auth (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/executions/{{execution_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "executions", "{{execution_id}}", "status"]
+            },
+            "description": "Query status without any Authorization header.\n\nExpected: 401 Unauthorized (SRS §3.3 — Bearer JWT required for all /api/** routes)."
+          },
+          "response": [
+            {
+              "name": "401 Unauthorized — no token",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"error\": \"Unauthorized\",\n  \"message\": \"Missing Authorization header with Bearer token\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Status — Invalid Token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer totally.invalid.jwt.token"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/executions/{{execution_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "executions", "{{execution_id}}", "status"]
+            },
+            "description": "Query status with a malformed/invalid JWT token.\n\nExpected: 401 Unauthorized"
+          },
+          "response": [
+            {
+              "name": "401 Unauthorized — invalid token",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"error\": \"Unauthorized\",\n  \"message\": \"Invalid JWT token\"\n}"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
-

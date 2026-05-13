@@ -130,8 +130,8 @@ public class ExecutionOrchestrator {
 
         return ExecutionResultEvent.builder()
                 .executionId(UUID.fromString(event.getExecutionId()))
-                .userId(event.getUserId())
-                .problemId(event.getProblemId())
+                .userId(parseLongSafe(event.getUserId()))
+                .problemId(parseLongSafe(event.getProblemId()))
                 .language(event.getLanguage())
                 .mode(event.getMode())
                 .verdict(verdict)
@@ -152,6 +152,24 @@ public class ExecutionOrchestrator {
      * @param result raw container execution result
      * @return SRS §9 verdict string
      */
+    /**
+     * Safely parses a String to Long, returning {@code null} for null or non-numeric values.
+     * Handles cases where userId/problemId may be a UUID-style string or opaque token
+     * rather than a numeric ID (SRS §9 — userId is a String in ExecutionTaskEvent).
+     *
+     * @param value string to parse
+     * @return parsed Long, or null if the value is null or not a valid long
+     */
+    private Long parseLongSafe(String value) {
+        if (value == null) return null;
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            log.debug("Non-numeric id '{}' — stored as null in result event", value);
+            return null;
+        }
+    }
+
     private String deriveVerdict(ContainerSpawner.ContainerExecutionResult result) {
         if (result.isTimeout()) {
             return "TIME_LIMIT_EXCEEDED";

@@ -1,13 +1,16 @@
 package com.epam.execution_engine_service.persistence.config;
 
 import com.epam.execution_engine_service.gateway.websocket.ExecutionResultMessageListener;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import org.springframework.data.redis.serializer.GenericToStringSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
@@ -34,7 +37,12 @@ public class RedisConfig {
      * @param connectionFactory Redis connection factory
      * @return configured RedisTemplate
      */
+    /**
+     * Primary RedisTemplate for String KV operations — used by RedisExecutionStatusService
+     * and ExecutionResultPublishingService (SRS §8 — execution:status keys).
+     */
     @Bean
+    @Primary
     public RedisTemplate<String, String> redisTemplate(
         final RedisConnectionFactory connectionFactory
     ) {
@@ -55,6 +63,32 @@ public class RedisConfig {
         template.setHashValueSerializer(stringSerializer);
 
         // Initialize
+        template.afterPropertiesSet();
+
+        return template;
+    }
+
+    /**
+     * RedisTemplate for Object/ZSet operations — used by RateLimitingService
+     * which stores Long timestamps as ZSet members for the rolling-window
+     * rate limiter (SRS §3.3 — ratelimit:user:{id} key pattern).
+     *
+     * @param connectionFactory Redis connection factory
+     * @return configured RedisTemplate with Object value serializer
+     */
+    @Bean(name = "objectRedisTemplate")
+    public RedisTemplate<String, Object> objectRedisTemplate(
+        final RedisConnectionFactory connectionFactory
+    ) {
+        final RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+
+        final StringRedisSerializer stringSerializer = new StringRedisSerializer();
+        template.setKeySerializer(stringSerializer);
+        template.setHashKeySerializer(stringSerializer);
+        // GenericToStringSerializer handles Long/Double ZSet members as UTF-8 strings
+        template.setValueSerializer(new GenericToStringSerializer<>(Object.class));
+        template.setHashValueSerializer(new GenericToStringSerializer<>(Object.class));
         template.afterPropertiesSet();
 
         return template;

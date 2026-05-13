@@ -44,6 +44,12 @@ public class ExecutionResultEvent {
     private Long problemId;
 
     /**
+     * Human-readable problem name (e.g. "Two Sum").
+     * Stored separately from problemId for display purposes.
+     */
+    private String problemName;
+
+    /**
      * Programming language of submitted code.
      */
     private String language;

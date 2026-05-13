@@ -28,7 +28,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     show-sql: false
     open-in-view: false
     properties:
@@ -94,6 +94,17 @@ spring:
   # ===============================
   # Jackson Configuration (ISO-8601 timestamps)
   # ===============================
+  # ===============================
+  # Schema Initialization (replaces Flyway — SRS §5)
+  # schema.sql contains the full consolidated DDL (tables + indexes)
+  # ===============================
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
   jackson:
     serialization:
       write-dates-as-timestamps: false

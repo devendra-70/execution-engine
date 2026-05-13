@@ -1,5 +1,6 @@
 package com.epam.execution_engine_service.gateway.security;
 
+import com.epam.execution_engine_service.util.JwtTokenProvider;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
+import java.util.Optional;
 
 /**
  * STOMP channel interceptor that validates Bearer JWT on CONNECT frames and binds
@@ -58,7 +60,14 @@ public class JwtStompInterceptor implements ChannelInterceptor {
 
         Claims claims;
         try {
-            claims = jwtTokenProvider.validateAndExtractClaims(token);
+            Optional<Claims> claimsOpt = jwtTokenProvider.validateAndGetClaims(token);
+            if (claimsOpt.isEmpty()) {
+                log.warn("STOMP CONNECT rejected: invalid or expired JWT");
+                throw new MessageDeliveryException(message, "Authentication failed: invalid JWT");
+            }
+            claims = claimsOpt.get();
+        } catch (MessageDeliveryException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("STOMP CONNECT rejected: invalid JWT — {}", e.getMessage());
             throw new MessageDeliveryException(message,

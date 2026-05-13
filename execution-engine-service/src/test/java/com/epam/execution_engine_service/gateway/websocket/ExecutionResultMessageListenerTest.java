@@ -53,8 +53,8 @@ class ExecutionResultMessageListenerTest {
     void setUp() {
         sampleEvent = ExecutionResultEvent.builder()
                 .executionId(UUID.fromString("550e8400-e29b-41d4-a716-446655440000"))
-                .userId("user-99")
-                .problemId("two-sum")
+                .userId(99L)
+                .problemId(1L)
                 .verdict("PASSED")
                 .build();
     }
@@ -90,13 +90,13 @@ class ExecutionResultMessageListenerTest {
         void onMessage_userHasActiveSession_sendsToUserOnce() throws Exception {
             Message redisMessage = buildRedisMessage("{\"userId\":\"user-99\"}");
             when(objectMapper.readValue(anyString(), eq(ExecutionResultEvent.class))).thenReturn(sampleEvent);
-            when(simpUserRegistry.getUser("user-99")).thenReturn(mock(SimpUser.class));
+            when(simpUserRegistry.getUser("99")).thenReturn(mock(SimpUser.class));
 
             listener.onMessage(redisMessage, null);
 
             verify(messagingTemplate, times(1))
                     .convertAndSendToUser(
-                            "user-99",
+                            "99",
                             ExecutionResultMessageListener.RESULT_DESTINATION,
                             sampleEvent);
         }
@@ -111,7 +111,7 @@ class ExecutionResultMessageListenerTest {
         void onMessage_noActiveSession_doesNotSendToUser() throws Exception {
             Message redisMessage = buildRedisMessage("{\"userId\":\"user-99\"}");
             when(objectMapper.readValue(anyString(), eq(ExecutionResultEvent.class))).thenReturn(sampleEvent);
-            when(simpUserRegistry.getUser("user-99")).thenReturn(null);
+            when(simpUserRegistry.getUser("99")).thenReturn(null);
 
             listener.onMessage(redisMessage, null);
 

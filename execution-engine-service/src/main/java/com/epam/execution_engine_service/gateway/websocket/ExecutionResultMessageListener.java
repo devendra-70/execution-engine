@@ -60,7 +60,7 @@ public class ExecutionResultMessageListener implements MessageListener {
             return;
         }
 
-        String userId = event.getUserId();
+        String userId = event.getUserId() != null ? event.getUserId().toString() : null;
         if (userId == null) {
             log.warn("ExecutionResultEvent has null userId; discarding broadcast");
             return;

@@ -1,6 +1,6 @@
 package com.epam.execution_engine_service.config;
 
-import com.epam.execution_engine_service.dto.TestCaseDto;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,6 +60,22 @@ public class CaffeineConfig {
 
         log.info("Caffeine cache configured: TTL={}min, MaxSize={}", testcaseTtlMinutes, testcaseMaxSize);
         return cacheManager;
+    }
+
+    /**
+     * Direct Caffeine Cache bean for programmatic access (SRS §4.2).
+     * Used by {@link com.epam.execution_engine_service.cache.TestCaseCache} to avoid
+     * Redis network overhead on test case lookups.
+     *
+     * @return Cache keyed by problemId, value is List of test cases
+     */
+    @Bean(name = "testCaseCaffeineCache")
+    public Cache<String, List<?>> testCaseCache() {
+        return Caffeine.newBuilder()
+                .expireAfterWrite(testcaseTtlMinutes, TimeUnit.MINUTES)
+                .maximumSize(testcaseMaxSize)
+                .recordStats()
+                .build();
     }
 
 }

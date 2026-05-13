@@ -145,12 +145,12 @@ app:
       warm-min-size: 5                        # Pre-warmed containers (SRS §4.3)
       max-size: 100                           # Max containers (SRS §4.3)
       idle-ttl-seconds: 300                   # Container recycle threshold (SRS §4.3)
+      sweep-interval-ms: 30000               # Idle TTL sweep interval (SRS §12, EPMICMPCOD-531)
     sandbox:
       memory-limit-mb: 256                    # Docker cgroup limit
       jvm-xms: 128m                           # JVM initial heap
       jvm-xmx: 256m                           # JVM max heap
-      host: ${SANDBOX_HOST:localhost}         # Sandbox container hostname (for socket connection)
-      port: ${SANDBOX_PORT:9999}              # Sandbox container port (for socket communication)
+      base-port: ${SANDBOX_BASE_PORT:10000}   # Base host port; each pool container gets base-port+N (SRS §12)
   
   # Redis Configuration (SRS §8, §12)
   redis:

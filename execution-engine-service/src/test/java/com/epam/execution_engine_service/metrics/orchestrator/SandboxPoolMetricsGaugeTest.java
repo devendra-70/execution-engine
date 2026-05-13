@@ -1,7 +1,7 @@
 package com.epam.execution_engine_service.metrics.orchestrator;
 
 import com.epam.execution_engine_service.config.ApplicationProperties;
-import com.epam.execution_engine_service.orchestrator.ContainerSpawner;
+import com.epam.execution_engine_service.service.ContainerPoolService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,16 +14,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit Tests for SandboxPoolMetricsGauge
+ * Unit Tests for SandboxPoolMetricsGauge.
  *
- * <p>Test Coverage:
- * - Gauge initialization and registration
- * - Pool size metric retrieval from ContainerSpawner
- * - Configuration property injection
- * - Real-time pool capacity monitoring
- * - Metric metadata and tags
- *
- * <p>SRS §12 Compliance: Sandbox pool exhaustion signal (Signal 5)
+ * <p>Pool size is now sourced from {@link ContainerPoolService#getAvailableCount()} (SRS §12,
+ * Signal 5 — EPMICMPCOD-525).
  */
 @ExtendWith(MockitoExtension.class)
 class SandboxPoolMetricsGaugeTest {
@@ -31,7 +25,7 @@ class SandboxPoolMetricsGaugeTest {
     private MeterRegistry meterRegistry;
 
     @Mock
-    private ContainerSpawner containerSpawner;
+    private ContainerPoolService containerPoolService;
 
     @Mock
     private ApplicationProperties applicationProperties;
@@ -52,89 +46,76 @@ class SandboxPoolMetricsGaugeTest {
         when(metrics.getSandboxPool()).thenReturn(sandboxPoolConfig);
         when(sandboxPoolConfig.getExhaustionThresholdPercent()).thenReturn(20);
 
-        gauge = new SandboxPoolMetricsGauge(meterRegistry, containerSpawner, applicationProperties);
+        gauge = new SandboxPoolMetricsGauge(meterRegistry, containerPoolService, applicationProperties);
     }
 
     @Test
     void testConstructor_RegistersGauge() {
-        // Act & Assert
         assertNotNull(meterRegistry.find("sandbox.pool.available.size").gauge());
     }
 
     @Test
     void testGauge_IsRegistered() {
-        // Act & Assert
         assertNotNull(meterRegistry.find("sandbox.pool.available.size").gauge());
     }
 
     @Test
     void testConstructor_InjectsApplicationProperties() {
-        // Act
-        SandboxPoolMetricsGauge testGauge = new SandboxPoolMetricsGauge(meterRegistry, containerSpawner, applicationProperties);
+        SandboxPoolMetricsGauge testGauge = new SandboxPoolMetricsGauge(
+                new SimpleMeterRegistry(), containerPoolService, applicationProperties);
 
-        // Assert
         assertNotNull(testGauge);
         verify(applicationProperties, atLeastOnce()).getMetrics();
     }
 
     @Test
     void testGauge_WithExhaustionThreshold() {
-        // Arrange
         when(sandboxPoolConfig.getExhaustionThresholdPercent()).thenReturn(20);
 
-        // Act
-        SandboxPoolMetricsGauge testGauge = new SandboxPoolMetricsGauge(meterRegistry, containerSpawner, applicationProperties);
+        SandboxPoolMetricsGauge testGauge = new SandboxPoolMetricsGauge(
+                new SimpleMeterRegistry(), containerPoolService, applicationProperties);
 
-        // Assert
         assertNotNull(testGauge);
     }
 
     @Test
-    void testGauge_CallsContainerSpawnerGetPoolSize() {
-        // Arrange
-        when(containerSpawner.getPoolSize()).thenReturn(8);
-        SandboxPoolMetricsGauge testGauge = new SandboxPoolMetricsGauge(meterRegistry, containerSpawner, applicationProperties);
+    void testGauge_CallsContainerPoolServiceGetAvailableCount() {
+        when(containerPoolService.getAvailableCount()).thenReturn(8);
 
-        // Act - Sample the gauge (this calls getAvailablePoolSize())
+        // The gauge reads from ContainerPoolService on each scrape
         double value = meterRegistry.find("sandbox.pool.available.size").gauge().value();
 
-        // Assert - Should have called containerSpawner.getPoolSize() and returned the mocked value
-        verify(containerSpawner, atLeastOnce()).getPoolSize();
-        assertEquals(8.0, value, "Gauge should return value from ContainerSpawner.getPoolSize()");
+        verify(containerPoolService, atLeastOnce()).getAvailableCount();
+        assertEquals(8.0, value, "Gauge should return value from ContainerPoolService.getAvailableCount()");
     }
 
     @Test
-    void testConstructor_WithNullContainerSpawner_ThrowsNullPointerException() {
-        // Act & Assert - Constructor should fail-fast with NPE for null containerSpawner
-        assertThrows(NullPointerException.class, 
-            () -> new SandboxPoolMetricsGauge(meterRegistry, null, applicationProperties),
-            "Constructor should throw NullPointerException for null containerSpawner");
+    void testConstructor_WithNullContainerPoolService_ThrowsNullPointerException() {
+        assertThrows(NullPointerException.class,
+                () -> new SandboxPoolMetricsGauge(meterRegistry, null, applicationProperties),
+                "Constructor should throw NullPointerException for null containerPoolService");
     }
 
     @Test
     void testConstructor_WithNullMeterRegistry_ThrowsNullPointerException() {
-        // Act & Assert - Constructor should fail-fast with NPE for null meterRegistry
         assertThrows(NullPointerException.class,
-            () -> new SandboxPoolMetricsGauge(null, containerSpawner, applicationProperties),
-            "Constructor should throw NullPointerException for null meterRegistry");
+                () -> new SandboxPoolMetricsGauge(null, containerPoolService, applicationProperties),
+                "Constructor should throw NullPointerException for null meterRegistry");
     }
 
     @Test
     void testGauge_IsRealisticMetric() {
-        // Act & Assert
         assertNotNull(meterRegistry.find("sandbox.pool.available.size").gauge());
     }
 
     @Test
     void testGauge_ReturnsNumericalValue() {
-        // Arrange
-        when(containerSpawner.getPoolSize()).thenReturn(5);
-        SandboxPoolMetricsGauge testGauge = new SandboxPoolMetricsGauge(meterRegistry, containerSpawner, applicationProperties);
+        when(containerPoolService.getAvailableCount()).thenReturn(5);
+        SimpleMeterRegistry freshRegistry = new SimpleMeterRegistry();
+        new SandboxPoolMetricsGauge(freshRegistry, containerPoolService, applicationProperties);
 
-        // Act
-        double value = meterRegistry.find("sandbox.pool.available.size").gauge().value();
+        double value = freshRegistry.find("sandbox.pool.available.size").gauge().value();
 
-        // Assert - Should return the mocked container pool size
-        assertEquals(5.0, value, "Gauge should return actual pool size from ContainerSpawner");
+        assertEquals(5.0, value, "Gauge should return actual pool size from ContainerPoolService");
     }
 }

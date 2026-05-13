@@ -97,6 +97,13 @@ public class SandboxConfig {
      */
     private int pidLimit = 512;
     
+    /**
+     * Host path to the seccomp profile JSON.
+     * Default: empty string — means "unconfined" (no seccomp filtering).
+     * Set via SECCOMP_PROFILE_PATH env var in production.
+     */
+    private String seccompProfilePath = "";
+    
     // ==================== Getters and Setters ====================
     
     public String getJvmXms() {
@@ -200,6 +207,18 @@ public class SandboxConfig {
         }
         this.pidLimit = pidLimit;
     }
+
+    public String getSeccompProfilePath() {
+        return seccompProfilePath;
+    }
+
+    public void setSeccompProfilePath(String seccompProfilePath) {
+        this.seccompProfilePath = seccompProfilePath != null ? seccompProfilePath : "";
+    }
+
+    public boolean isSeccompEnabled() {
+        return seccompProfilePath != null && !seccompProfilePath.isBlank();
+    }
     
     // ==================== JVM Flags Builder ====================
     
@@ -224,11 +243,13 @@ public class SandboxConfig {
         
         // Garbage collection
         if (jvmUseEpsilonGc) {
-            flags.append("-XX:+UseEpsilonGC").append(" ");
+            flags.append("-XX:+UnlockExperimentalVMOptions -XX:+UseEpsilonGC").append(" ");
         }
         
-        // Shared class data archive
-        flags.append("-XX:SharedArchiveFile=").append(jvmSharedArchiveFile).append(" ");
+        // Shared class data archive (append if path is configured; existence checked at runtime)
+        if (jvmSharedArchiveFile != null && !jvmSharedArchiveFile.isBlank()) {
+            flags.append("-XX:SharedArchiveFile=").append(jvmSharedArchiveFile).append(" ");
+        }
         
         // Heap pre-touching
         if (jvmAlwaysPreTouch) {

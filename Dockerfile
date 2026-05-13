@@ -1,73 +1,59 @@
-# Multi-stage build for minimal image size
+# ===============================
+# Stage 1: Build sandbox-wrapper shaded JAR
+# (SRS §6.1 — dependency-free Java application; SRS §13 — shaded JAR)
+# ===============================
 FROM eclipse-temurin:21-jdk-alpine AS builder
 
-RUN apk add --no-cache wget maven
+RUN apk add --no-cache maven
 
-WORKDIR /app
+WORKDIR /build
+COPY sandbox-wrapper/pom.xml pom.xml
+COPY sandbox-wrapper/src src/
 
-COPY execution-engine-service/target/*.jar app.jar
-
-EXPOSE 8080
-
-CMD ["java", "-jar", "app.jar"]
-COPY . .
-
-RUN mvn clean package -DskipTests
+RUN mvn package -DskipTests -q
 
 # ===============================
-# = Runtime stage with security hardening
+# Stage 2: Sandbox runtime image
 # EPMICMPCOD-349: Sandbox Runtime Isolation
 # ===============================
-
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jdk-alpine
 
 # === SUBTASK 453: Container Security Hardening ===
+# JDK required: SandboxWrapper uses javax.tools.JavaCompiler (in-memory compilation)
+RUN apk add --no-cache dumb-init
 
-# Install minimum required packages
-RUN apk add --no-cache dumb-init && \
-    # Remove unnecessary packages and binaries
-    apk del apk-tools && \
-    rm -rf /var/cache/apk/* /usr/bin/wget /usr/bin/curl
+# Jar lives in /opt/sandbox — NOT under /sandbox (which is tmpfs-mounted at runtime)
+WORKDIR /opt/sandbox
 
-WORKDIR /sandbox
+# Create non-root sandbox user (UID/GID 65534 = nobody in Alpine)
+RUN adduser -u 65534 -G nobody -h /opt/sandbox -s /sbin/nologin -D sandbox-user 2>/dev/null || true
 
-# Create non-root sandbox user (UID 65534, GID 65534)
-# UID 65534 is conventionally used for unprivileged operations
-RUN addgroup -g 65534 sandbox-group && \
-    adduser -u 65534 -G sandbox-group -h /sandbox -s /sbin/nologin -D sandbox-user
+# Copy shaded sandbox-wrapper jar from builder stage
+COPY --from=builder /build/target/sandbox-wrapper.jar /opt/sandbox/sandbox-wrapper.jar
 
-# Create sandbox execution directory
-RUN mkdir -p /sandbox /tmp && \
-    chown -R 65534:65534 /sandbox /tmp
+# Copy entrypoint script
+COPY sandbox-entrypoint.sh /opt/sandbox/run.sh
+RUN chmod +x /opt/sandbox/run.sh
 
-# Remove setuid/setgid bits to prevent privilege escalation
-RUN find / -perm /4000 -o -perm /2000 -delete 2>/dev/null || true
+# Set ownership
+RUN chown -R 65534:65534 /opt/sandbox
 
-# Copy compiled artifact from builder
-COPY --from=builder /app/execution-engine-service/target/*.jar app.jar
+# Remove setuid/setgid bits (EPMICMPCOD-453: privilege escalation prevention)
+RUN find / -xdev -perm /6000 -exec chmod a-s {} + 2>/dev/null || true
 
-# Set file ownership
-RUN chown 65534:65534 /sandbox/app.jar
+# ===============================
+# Runtime configuration
+# ===============================
 
-# === SUBTASK 453: Read-only filesystem enforcement ===
-# Docker will apply --read-only at runtime via docker run command
-
-# === SUBTASK 456: Network isolation marker ===
-# Docker will apply --net=none at runtime via docker run command
-
-# === SUBTASK 451: JVM Flags Injection ===
-# JVM_FLAGS environment variable injected at runtime
-# Example: -Xms128m -Xmx256m -XX:TieredStopAtLevel=1 -XX:+UseEpsilonGC ...
-
-# Non-root execution
+# Non-root execution (EPMICMPCOD-453)
 USER 65534:65534
 
-# Health check (basic process check)
-HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=1 \
-    CMD java -version 2>&1 | grep -q "openjdk version" || exit 1
+# === SUBTASK 451: JVM Flags Injection ===
+# JVM_FLAGS env var injected by ContainerSpawner at runtime
+# USER_CODE env var injected by ContainerSpawner (base64 encoded Java source)
 
-# Entrypoint with graceful shutdown and JVM flags support
-ENTRYPOINT ["/sbin/dumb-init", "--"]
+# Entrypoint: dumb-init for proper signal handling and zombie reaping
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-# Execute with injected JVM flags
-CMD ["sh", "-c", "exec java ${JVM_FLAGS:-} -jar app.jar"]
+# Default command: run the entrypoint script
+CMD ["/bin/sh", "/opt/sandbox/run.sh"]

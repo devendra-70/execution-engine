@@ -141,6 +141,9 @@ public class ExecutionOrchestrator {
                 .submittedCode(event.getSourceCode())
                 .submittedAt(submittedAt)
                 .completedAt(completedAt)
+                .totalRuntimeMs(0L)
+                .memoryBytes(0L)
+                .score(0.0)
                 // TODO: EPMICMPCOD-??? — populate from Sandbox Wrapper test-case results per SRS §4.3 (Execution Loop)
                 .testResults(Collections.emptyList())
                 .build();

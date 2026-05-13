@@ -1,8 +1,18 @@
 -- schema.sql
 -- CodEval Execution Engine — Consolidated Database Schema
 -- SRS §5 Persistence Component | SRS §4.2 Caffeine cache DB fallback | SRS §9 Domain Model
--- Replaces Flyway migrations V001–V007 with a single idempotent DDL script.
--- Safe to re-run: all statements use IF NOT EXISTS / IF EXISTS guards.
+-- Replaces Flyway migrations V001–V007 with a single authoritative DDL script.
+--
+-- DROP + CREATE ensures the schema is always aligned with the current entity model,
+-- clearing any stale columns left by old conflicting Flyway migrations (e.g. V002 VARCHAR→BIGINT drift).
+-- Safe for local dev; in production gate behind a one-time migration run or blue/green deploy.
+
+-- ============================================================================
+-- Drop existing tables (reverse FK order)
+-- ============================================================================
+DROP TABLE IF EXISTS submission_test_results CASCADE;
+DROP TABLE IF EXISTS submissions CASCADE;
+DROP TABLE IF EXISTS test_case CASCADE;
 
 -- ============================================================================
 -- Table: submissions
@@ -12,7 +22,7 @@
 --         language, mode, verdict, score (DOUBLE), totalRuntimeMs, memoryBytes.
 -- SRS §12: Batch insert batch_size=50, order_inserts=true.
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS submissions (
+CREATE TABLE submissions (
     id               BIGSERIAL    PRIMARY KEY,
 
     -- Idempotency key (SRS §5.2 — Kafka offset committed only after DB commit)
@@ -61,7 +71,7 @@ CREATE TABLE IF NOT EXISTS submissions (
 -- SRS §2.2 step 13: Individual per-test-case results under a submission.
 -- SRS §9 TestCaseResultEvent: status, runtimeMs, memoryBytes, expectedOutput, actualOutput.
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS submission_test_results (
+CREATE TABLE submission_test_results (
     id               BIGSERIAL    PRIMARY KEY,
 
     -- FK to parent submission (cascade delete on submission removal)
@@ -92,7 +102,7 @@ CREATE TABLE IF NOT EXISTS submission_test_results (
 -- SRS §4.2: Caffeine JVM-local cache (key=problemId) with PostgreSQL as fallback on miss.
 -- SRS §9: problemId is a string slug (VARCHAR(128)), not a numeric ID.
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS test_case (
+CREATE TABLE test_case (
     id               BIGSERIAL    PRIMARY KEY,
 
     -- SRS §9: problemId is a numeric Long identifier
@@ -113,17 +123,17 @@ CREATE TABLE IF NOT EXISTS test_case (
 -- ============================================================================
 
 -- Submission history by user (SRS §2.2 user history queries)
-CREATE INDEX IF NOT EXISTS idx_submissions_user_created_at
+CREATE INDEX idx_submissions_user_created_at
     ON submissions(user_id, created_at DESC);
 
 -- Submission history by problem (SRS §2.2 problem history queries)
-CREATE INDEX IF NOT EXISTS idx_submissions_problem_created_at
+CREATE INDEX idx_submissions_problem_created_at
     ON submissions(problem_id, created_at DESC);
 
 -- FK join performance for test results (SRS §5.2)
-CREATE INDEX IF NOT EXISTS idx_submission_test_results_execution
+CREATE INDEX idx_submission_test_results_execution
     ON submission_test_results(execution_id);
 
 -- Caffeine cache DB fallback lookup (SRS §4.2 — key=problemId BIGINT)
-CREATE INDEX IF NOT EXISTS idx_test_case_problem_id
+CREATE INDEX idx_test_case_problem_id
     ON test_case(problem_id);

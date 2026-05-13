@@ -29,13 +29,5 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-test-output.txt
-execution-engine-service\mvn-test-output.txt
-code-review-report.md
-REFACTOR_REPORT.md
-
-
 ### VS Code ###
 .vscode/
-
-documents\SRS.md

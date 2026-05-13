@@ -47,7 +47,7 @@ cd execution-engine\execution-engine-service
 ```
 
 Run the Spring Boot service:
-mvnd --version
+
 ```cmd
 
 mvnw.cmd spring-boot:run

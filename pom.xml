@@ -14,13 +14,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.0</version>
+        <version>3.4.5</version>
         <relativePath/>
     </parent>
 
     <modules>
-        <module>execution-engine-service</module>
-        <module>execution-engine-service-qa</module>
+        <module>executionEngine-service</module>
+        <module>executionEngine-service-qa</module>
     </modules>
 
     <properties>

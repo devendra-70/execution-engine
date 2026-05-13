@@ -1,0 +1,30 @@
+{
+  "cluster": "codeval-cluster",
+  "serviceName": "codeval-execution-engine",
+  "taskDefinition": "codeval-execution-engine",
+  "desiredCount": 2,
+  "launchType": "EC2",
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:REGION:ACCOUNT_ID:targetgroup/codeval-engine/XXXXXXXXXX",
+      "containerName": "codeval-execution-engine",
+      "containerPort": 8080
+    }
+  ],
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": ["subnet-XXXXXXXXX", "subnet-YYYYYYYYY"],
+      "securityGroups": ["sg-XXXXXXXXX"],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "deploymentConfiguration": {
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 50
+  },
+  "deploymentController": {
+    "type": "ECS"
+  },
+  "enableExecuteCommand": true
+}
+

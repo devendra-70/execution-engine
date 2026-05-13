@@ -1,0 +1,67 @@
+{
+  "family": "codeval-execution-engine",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "cpu": "2048",
+  "memory": "4096",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "codeval-execution-engine",
+      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/codeval/execution-engine:latest",
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "DB_PORT", "value": "5432"},
+        {"name": "DB_NAME", "value": "codeval"},
+        {"name": "REDIS_PORT", "value": "6379"}
+      ],
+      "secrets": [
+        {"name": "JWT_SECRET",         "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:codeval/jwt-secret"},
+        {"name": "DB_HOST",            "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:codeval/db-host"},
+        {"name": "DB_USER",            "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:codeval/db-user"},
+        {"name": "DB_PASS",            "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:codeval/db-pass"},
+        {"name": "REDIS_HOST",         "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:codeval/redis-host"},
+        {"name": "KAFKA_BOOTSTRAP",    "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:codeval/kafka-bootstrap"}
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "docker-sock",
+          "containerPath": "/var/run/docker.sock",
+          "readOnly": false
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/codeval-execution-engine",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "essential": true
+    }
+  ],
+  "volumes": [
+    {
+      "name": "docker-sock",
+      "host": {
+        "sourcePath": "/var/run/docker.sock"
+      }
+    }
+  ]
+}
+

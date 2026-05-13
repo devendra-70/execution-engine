@@ -1,6 +1,5 @@
 package org.codeval.execution.orchestrator.kafka;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.codeval.execution.domain.ExecutionStatus;
 import org.codeval.execution.domain.ExecutionTaskEvent;
@@ -15,14 +14,20 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ExecutionTaskListener {
 
     private final ExecutionOrchestrationService orchestrationService;
     private final StringRedisTemplate redisTemplate;
-
-    @Qualifier("orchestrationPool")
     private final ThreadPoolTaskExecutor orchestrationPool;
+
+    public ExecutionTaskListener(
+            ExecutionOrchestrationService orchestrationService,
+            StringRedisTemplate redisTemplate,
+            @Qualifier("orchestrationPool") ThreadPoolTaskExecutor orchestrationPool) {
+        this.orchestrationService = orchestrationService;
+        this.redisTemplate = redisTemplate;
+        this.orchestrationPool = orchestrationPool;
+    }
 
     @KafkaListener(
             topics = "${app.kafka.topic:execution-tasks}",
@@ -36,18 +41,17 @@ public class ExecutionTaskListener {
         String redisKey = "execution:status:" + event.getExecutionId();
         redisTemplate.opsForValue().set(redisKey, ExecutionStatus.PROCESSING.name());
 
-        // Hand off to Pool B (orchestration pool)
-        // Acknowledge only after DB commit succeeds (inside orchestration service)
+        // Hand off to Pool B — ack ONLY after DB commit succeeds
         orchestrationPool.submit(() -> {
             try {
                 orchestrationService.orchestrate(event);
                 ack.acknowledge();
                 log.info("Kafka offset committed for executionId={}", event.getExecutionId());
             } catch (Exception e) {
-                log.error("Orchestration failed for executionId={}, offset NOT committed", event.getExecutionId(), e);
-                // Do NOT ack - task will be retried
+                log.error("Orchestration failed for executionId={}, offset NOT committed",
+                        event.getExecutionId(), e);
+                // Do NOT ack — Kafka will redeliver
             }
         });
     }
 }
-

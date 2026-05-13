@@ -1,18 +1,17 @@
 package org.codeval.execution.orchestrator.docker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.ExecCreateCmdResponse;
-import com.github.dockerjava.core.command.ExecStartResultCallback;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.codeval.execution.domain.TestCase;
 import org.codeval.execution.domain.TestCaseResultEvent;
 import org.codeval.execution.domain.Verdict;
 
-import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
+import java.net.Socket;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class SandboxContainer {
@@ -20,52 +19,47 @@ public class SandboxContainer {
     @Getter
     private final String containerId;
     private final DockerClient dockerClient;
+    private final String sandboxHost;
+    @Getter
+    private final int sandboxPort;
     private boolean healthy = true;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public SandboxContainer(String containerId, DockerClient dockerClient) {
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
+
+    public SandboxContainer(String containerId, DockerClient dockerClient,
+                            String sandboxHost, int sandboxPort) {
         this.containerId = containerId;
         this.dockerClient = dockerClient;
+        this.sandboxHost = sandboxHost;
+        this.sandboxPort = sandboxPort;
     }
 
     /**
-     * Execute source code against test cases inside this container.
-     * The sandbox wrapper is invoked via docker exec.
+     * Execute source code against test cases via TCP socket to the sandbox wrapper.
+     * The sandbox compiles once, then runs each test case with a fresh ClassLoader.
      */
     public List<TestCaseResultEvent> execute(String sourceCode, List<TestCase> testCases, long timeoutMs) {
         try {
-            // Build request payload for sandbox
             SandboxRequest request = new SandboxRequest(sourceCode, testCases, timeoutMs);
-            String requestJson = objectMapper.writeValueAsString(request);
+            byte[] requestBytes = MAPPER.writeValueAsBytes(request);
 
-            // Write request via docker exec (stdin)
-            ExecCreateCmdResponse execCmd = dockerClient.execCreateCmd(containerId)
-                    .withAttachStdin(true)
-                    .withAttachStdout(true)
-                    .withAttachStderr(true)
-                    .withCmd("sh", "-c",
-                            "echo '" + requestJson.replace("'", "'\"'\"'") + "' | java -jar /app/sandbox-wrapper.jar")
-                    .exec();
+            try (Socket socket = new Socket(sandboxHost, sandboxPort)) {
+                socket.setSoTimeout((int) (timeoutMs + 10_000));
 
-            ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-            ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+                // Send request, signal EOF
+                OutputStream out = socket.getOutputStream();
+                out.write(requestBytes);
+                out.flush();
+                socket.shutdownOutput();
 
-            dockerClient.execStartCmd(execCmd.getId())
-                    .exec(new ExecStartResultCallback(stdout, stderr))
-                    .awaitCompletion(timeoutMs + 5000, TimeUnit.MILLISECONDS);
-
-            String output = stdout.toString().trim();
-            if (output.isEmpty()) {
-                log.error("Sandbox stderr: {}", stderr);
-                healthy = false;
-                return buildErrorResult(testCases, Verdict.RUNTIME_ERROR, "Sandbox returned no output");
+                // Read response until EOF
+                byte[] responseBytes = socket.getInputStream().readAllBytes();
+                SandboxResponse response = MAPPER.readValue(responseBytes, SandboxResponse.class);
+                return response.results();
             }
-
-            SandboxResponse response = objectMapper.readValue(output, SandboxResponse.class);
-            return response.results();
-
         } catch (Exception e) {
-            log.error("Execution in container {} failed", containerId, e);
+            log.error("Socket execution in container {} failed", containerId, e);
             healthy = false;
             return buildErrorResult(testCases, Verdict.RUNTIME_ERROR, e.getMessage());
         }
@@ -88,5 +82,4 @@ public class SandboxContainer {
     public record SandboxRequest(String sourceCode, List<TestCase> testCases, long timeoutMs) {}
     public record SandboxResponse(List<TestCaseResultEvent> results) {}
 }
-
 

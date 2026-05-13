@@ -32,6 +32,7 @@ app:
   docker:
     host: ${DOCKER_HOST:unix:///var/run/docker.sock}
     sandbox-image: ${SANDBOX_IMAGE:codeval/sandbox-wrapper:latest}
+    sandbox-host: ${SANDBOX_HOST:localhost}   # Host used by engine to reach sandbox containers
 
 spring:
   datasource:

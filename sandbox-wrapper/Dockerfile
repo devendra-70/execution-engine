@@ -6,6 +6,7 @@ COPY target/sandbox-wrapper.jar sandbox-wrapper.jar
 RUN addgroup -S sandbox && adduser -S sandbox -G sandbox
 USER sandbox
 
-# The sandbox listens on stdin, no port needed
-ENTRYPOINT ["sh", "-c", "while true; do sleep 3600; done"]
+EXPOSE 5000
 
+# Run as a persistent TCP socket server
+ENTRYPOINT ["java", "-jar", "/app/sandbox-wrapper.jar"]

@@ -1,4 +1,3 @@
-
 .idea/
 *.iml
 .vscode/
@@ -7,15 +6,28 @@
 target/
 build/
 
+
 # Logs
 *.log
 
-/github/logs/
-tickets/
-projects/
+/.github/logs/
+tickets/*
+projects/*
 
+documents/SRS.md
 documents/architecture_document/*
+
+# Local reports
+REFACTOR_REPORT.md
+code-review-report.md
+ORCHESTRATOR_PIPELINE_SUMMARY.md
+
+LOCAL_SETUP_GUIDE.md
+documents/SRS.md
+
+*.txt
 
 # OS
 .DS_Store
 Thumbs.db
+SRS.md

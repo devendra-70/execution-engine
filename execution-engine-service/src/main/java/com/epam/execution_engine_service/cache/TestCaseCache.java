@@ -1,8 +1,8 @@
 package com.epam.execution_engine_service.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,10 +19,13 @@ import java.util.List;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class TestCaseCache {
-    
+
     private final Cache<String, List<?>> testCaseCache;
+
+    public TestCaseCache(@Qualifier("testCaseCaffeineCache") Cache<String, List<?>> testCaseCache) {
+        this.testCaseCache = testCaseCache;
+    }
     
     /**
      * Get test cases for a problem from Caffeine cache

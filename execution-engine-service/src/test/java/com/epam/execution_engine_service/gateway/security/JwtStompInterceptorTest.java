@@ -1,5 +1,6 @@
 package com.epam.execution_engine_service.gateway.security;
 
+import com.epam.execution_engine_service.util.JwtTokenProvider;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -15,6 +16,8 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -73,7 +76,7 @@ class JwtStompInterceptorTest {
         @DisplayName("Valid Bearer JWT binds userId as principal and passes message through")
         void preSend_validBearerJwt_bindsUserIdAsPrincipalAndReturnsMessage() {
             Claims mockClaims = mock(Claims.class);
-            when(jwtTokenProvider.validateAndExtractClaims("valid.token.here")).thenReturn(mockClaims);
+            when(jwtTokenProvider.validateAndGetClaims("valid.token.here")).thenReturn(Optional.of(mockClaims));
             when(jwtClaimsExtractor.extractUserId(mockClaims)).thenReturn("user-42");
 
             Message<byte[]> message = buildConnectMessage("Bearer valid.token.here");
@@ -96,8 +99,8 @@ class JwtStompInterceptorTest {
         @Test
         @DisplayName("Invalid JWT in STOMP CONNECT headers throws MessageDeliveryException")
         void preSend_invalidJwt_throwsMessageDeliveryException() {
-            when(jwtTokenProvider.validateAndExtractClaims(anyString()))
-                    .thenThrow(new RuntimeException("Invalid JWT token: signature mismatch"));
+            when(jwtTokenProvider.validateAndGetClaims(anyString()))
+                    .thenReturn(Optional.empty());
 
             Message<byte[]> message = buildConnectMessage("Bearer bad.token.value");
             MessageChannel channel = mock(MessageChannel.class);

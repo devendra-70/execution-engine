@@ -118,7 +118,8 @@
         <!-- Caffeine Cache (SRS §4.2) -->
         
 
-        <!-- Flyway: Database migration (for V001__create_persistence_schema.sql) -->
+        <!-- Caffeine Cache (SRS §4.2) -->
+        <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
             <version>3.1.8</version>

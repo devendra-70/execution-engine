@@ -8,7 +8,7 @@ import com.epam.execution_engine_service.gateway.exception.ExecutionRegistration
 import com.epam.execution_engine_service.gateway.exception.RateLimitException;
 import com.epam.execution_engine_service.gateway.exception.ValidationException;
 import com.epam.execution_engine_service.gateway.security.JwtClaimsExtractor;
-import com.epam.execution_engine_service.gateway.security.JwtTokenProvider;
+import com.epam.execution_engine_service.util.JwtTokenProvider;
 import com.epam.execution_engine_service.persistence.entity.ExecutionRequest;
 import com.epam.execution_engine_service.persistence.entity.ExecutionStatus;
 import com.epam.execution_engine_service.persistence.entity.ExecutionStatusEnum;
@@ -163,11 +163,11 @@ public class ExecutionEngineServiceTests {
     public void test_JwtTokenProvider_ValidToken_ExtractsClaims() {
         // SRS 3.3: Valid JWT should validate and extract claims
         String validToken = "valid.jwt.token";
-        when(jwtTokenProvider.validateAndExtractClaims(validToken)).thenReturn(claims);
+        when(jwtTokenProvider.validateAndGetClaims(validToken)).thenReturn(java.util.Optional.of(claims));
         
-        Claims result = jwtTokenProvider.validateAndExtractClaims(validToken);
-        assertNotNull(result);
-        assertEquals(claims, result);
+        java.util.Optional<Claims> result = jwtTokenProvider.validateAndGetClaims(validToken);
+        assertTrue(result.isPresent());
+        assertEquals(claims, result.get());
     }
 
     @Test
@@ -184,12 +184,11 @@ public class ExecutionEngineServiceTests {
     public void test_JwtTokenProvider_InvalidToken_ThrowsException() {
         // SRS 3.3: Invalid token should throw exception
         String invalidToken = "invalid.token";
-        when(jwtTokenProvider.validateAndExtractClaims(invalidToken))
-                .thenThrow(new RuntimeException("Invalid token signature"));
+        when(jwtTokenProvider.validateAndGetClaims(invalidToken))
+                .thenReturn(java.util.Optional.empty());
         
-        assertThrows(RuntimeException.class, () -> {
-            jwtTokenProvider.validateAndExtractClaims(invalidToken);
-        });
+        java.util.Optional<Claims> result = jwtTokenProvider.validateAndGetClaims(invalidToken);
+        assertFalse(result.isPresent());
     }
 
     @Test
@@ -209,11 +208,11 @@ public class ExecutionEngineServiceTests {
         Claims claims1 = mock(Claims.class);
         Claims claims2 = mock(Claims.class);
         
-        when(jwtTokenProvider.validateAndExtractClaims(token1)).thenReturn(claims1);
-        when(jwtTokenProvider.validateAndExtractClaims(token2)).thenReturn(claims2);
+        when(jwtTokenProvider.validateAndGetClaims(token1)).thenReturn(java.util.Optional.of(claims1));
+        when(jwtTokenProvider.validateAndGetClaims(token2)).thenReturn(java.util.Optional.of(claims2));
         
-        assertEquals(claims1, jwtTokenProvider.validateAndExtractClaims(token1));
-        assertEquals(claims2, jwtTokenProvider.validateAndExtractClaims(token2));
+        assertEquals(claims1, jwtTokenProvider.validateAndGetClaims(token1).get());
+        assertEquals(claims2, jwtTokenProvider.validateAndGetClaims(token2).get());
     }
 
     // ========================================================================

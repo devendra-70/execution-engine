@@ -5,9 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 
 /**
@@ -25,27 +22,21 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class KafkaProducerService {
 
-    private final KafkaTemplate<String, ExecutionTaskEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Value("${app.kafka.topic:execution-tasks}")
     private String kafkaTopic;
 
     /**
-     * Publish execution task event to Kafka (SRS §7)
-     * 
+     * Publish execution task event to Kafka (SRS §7).
+     * Message key = userId to guarantee per-user ordering (SRS §7.1).
+     *
      * @param event ExecutionTaskEvent to publish
      */
     public void publishExecutionTaskEvent(ExecutionTaskEvent event) {
         try {
-            // Create message with userId as key (for partitioning by user)
-            String messageKey = event.getUserId().toString();
-
-            Message<ExecutionTaskEvent> message = MessageBuilder
-                    .withPayload(event)
-                    .setHeader(KafkaHeaders.TOPIC, kafkaTopic)
-                    .build();
-
-            // Send to Kafka
+            // userId used as message key — guarantees per-user partition ordering (SRS §7.1)
+            String messageKey = event.getUserId() != null ? event.getUserId().toString() : null;
             kafkaTemplate.send(kafkaTopic, messageKey, event);
         } catch (Exception e) {
             throw new RuntimeException("Kafka publishing failed", e);

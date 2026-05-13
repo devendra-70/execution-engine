@@ -9,7 +9,6 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Test Configuration — Mock beans for orchestrator services (SRS §6, §8, §10)
@@ -37,6 +36,16 @@ public class TestServiceConfiguration {
     @Primary
     public SandboxClient sandboxClient() {
         return mock(SandboxClient.class);
+    }
+
+    /**
+     * Mock for util.JwtTokenProvider required by JwtAuthenticationFilter → SecurityConfig
+     * and by JwtStompInterceptor → WebSocketConfig.
+     */
+    @Bean
+    @Primary
+    public com.epam.execution_engine_service.util.JwtTokenProvider utilJwtTokenProvider() {
+        return mock(com.epam.execution_engine_service.util.JwtTokenProvider.class);
     }
 
 }

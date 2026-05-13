@@ -1,8 +1,8 @@
 package com.epam.execution_engine_service.service;
 
 import com.epam.execution_engine_service.exception.RateLimitExceededException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -21,7 +21,6 @@ import java.time.Instant;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 @ConditionalOnProperty(name = "app.redis.enabled", havingValue = "true", matchIfMissing = true)
 public class RateLimitingService {
 
@@ -29,6 +28,11 @@ public class RateLimitingService {
 
     @Value("${app.redis.rate-limit.requests-per-minute:5}")
     private int requestsPerMinute;
+
+    public RateLimitingService(
+            @Qualifier("objectRedisTemplate") RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     /**
      * Check if rate limit is exceeded and consume one token

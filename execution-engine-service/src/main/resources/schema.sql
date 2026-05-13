@@ -18,9 +18,12 @@ CREATE TABLE IF NOT EXISTS submissions (
     -- Idempotency key (SRS §5.2 — Kafka offset committed only after DB commit)
     execution_id     UUID         NOT NULL UNIQUE,
 
-    -- SRS §9 domain model: userId and problemId are string slugs (e.g. "user-42", "two-sum")
-    user_id          VARCHAR(64)  NOT NULL,
-    problem_id       VARCHAR(128) NOT NULL,
+    -- SRS §9 domain model: userId and problemId are numeric Long identifiers
+    user_id          BIGINT       NOT NULL,
+    problem_id       BIGINT       NOT NULL,
+
+    -- Human-readable problem name stored as a separate field (e.g. "Two Sum", "Reverse String")
+    problem_name     VARCHAR(255),
 
     -- Execution metadata (SRS §9)
     language         VARCHAR(32)  NOT NULL,
@@ -92,8 +95,11 @@ CREATE TABLE IF NOT EXISTS submission_test_results (
 CREATE TABLE IF NOT EXISTS test_case (
     id               BIGSERIAL    PRIMARY KEY,
 
-    -- SRS §9: problemId is a string slug (e.g. "two-sum")
-    problem_id       VARCHAR(128) NOT NULL,
+    -- SRS §9: problemId is a numeric Long identifier
+    problem_id       BIGINT       NOT NULL,
+
+    -- Human-readable problem name stored separately (e.g. "Two Sum")
+    problem_name     VARCHAR(255),
 
     input            TEXT         NOT NULL,
     expected_output  TEXT         NOT NULL,
@@ -118,6 +124,6 @@ CREATE INDEX IF NOT EXISTS idx_submissions_problem_created_at
 CREATE INDEX IF NOT EXISTS idx_submission_test_results_execution
     ON submission_test_results(execution_id);
 
--- Caffeine cache DB fallback lookup (SRS §4.2 — key=problemId)
+-- Caffeine cache DB fallback lookup (SRS §4.2 — key=problemId BIGINT)
 CREATE INDEX IF NOT EXISTS idx_test_case_problem_id
     ON test_case(problem_id);

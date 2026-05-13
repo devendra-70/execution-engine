@@ -47,6 +47,13 @@ public class ExecutionResultEvent {
     private Long problemId;
 
     /**
+     * Human-readable problem name (e.g. "Two Sum").
+     * Stored separately from problemId for display purposes.
+     */
+    @JsonProperty("problem_name")
+    private String problemName;
+
+    /**
      * Final verdict: COMPILE_ERROR, RUNTIME_ERROR, PASSED, PARTIAL_SUCCESS, TIME_LIMIT_EXCEEDED
      */
     @NotBlank(message = "verdict is required")

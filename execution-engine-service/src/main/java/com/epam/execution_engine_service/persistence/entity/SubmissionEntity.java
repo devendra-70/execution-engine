@@ -61,6 +61,13 @@ public class SubmissionEntity {
     private Long problemId;
 
     /**
+     * Human-readable problem name stored as a separate field (e.g. "Two Sum").
+     * Decoupled from problemId to allow display without a problem-service lookup.
+     */
+    @Column(name = "problem_name", length = 255)
+    private String problemName;
+
+    /**
      * Programming language (from ExecutionResultEvent.language).
      */
     @Column(name = "language", nullable = false, length = 32)

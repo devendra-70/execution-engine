@@ -5,12 +5,15 @@ import org.codeval.execution.domain.ExecutionStatus;
 import org.codeval.execution.domain.ExecutionTaskEvent;
 import org.codeval.execution.orchestrator.ExecutionOrchestrationService;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
+
+import java.time.Duration;
 
 @Slf4j
 @Component
@@ -19,6 +22,9 @@ public class ExecutionTaskListener {
     private final ExecutionOrchestrationService orchestrationService;
     private final StringRedisTemplate redisTemplate;
     private final ThreadPoolTaskExecutor orchestrationPool;
+
+    @Value("${app.redis.status-ttl-seconds:600}")
+    private long statusTtlSeconds;
 
     public ExecutionTaskListener(
             ExecutionOrchestrationService orchestrationService,
@@ -37,9 +43,10 @@ public class ExecutionTaskListener {
     public void onExecutionTask(@Payload ExecutionTaskEvent event, Acknowledgment ack) {
         log.info("Received task from Kafka: executionId={}", event.getExecutionId());
 
-        // Update status to PROCESSING
+        // Update status to PROCESSING — keep same TTL to prevent immortal keys
         String redisKey = "execution:status:" + event.getExecutionId();
-        redisTemplate.opsForValue().set(redisKey, ExecutionStatus.PROCESSING.name());
+        redisTemplate.opsForValue().set(redisKey, ExecutionStatus.PROCESSING.name(),
+                Duration.ofSeconds(statusTtlSeconds));
 
         // Hand off to Pool B — ack ONLY after DB commit succeeds
         orchestrationPool.submit(() -> {
@@ -55,3 +62,4 @@ public class ExecutionTaskListener {
         });
     }
 }
+

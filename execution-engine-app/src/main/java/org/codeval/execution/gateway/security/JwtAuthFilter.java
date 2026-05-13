@@ -31,13 +31,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (token != null) {
             Optional<Claims> claims = jwtTokenValidator.validateAndExtract(token);
             claims.ifPresent(c -> {
-                Long userId = c.get("userId", Long.class);
-                String subject = c.getSubject();
-                String principal = userId != null ? String.valueOf(userId) : subject;
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                        principal, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
-                );
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                // JJWT deserialises JSON numbers as Integer for small values — always use Number
+                Object userIdRaw = c.get("userId");
+                String principal;
+                if (userIdRaw instanceof Number) {
+                    principal = String.valueOf(((Number) userIdRaw).longValue());
+                } else {
+                    // fallback: sub claim
+                    principal = c.getSubject();
+                }
+                if (principal != null) {
+                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                            principal, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                    );
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
             });
         }
         filterChain.doFilter(request, response);
@@ -48,7 +56,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
             return bearer.substring(7);
         }
-        // Also check query param for WebSocket handshake
+        // Also check query param — used by SockJS WS handshake (?token=...)
         String tokenParam = request.getParameter("token");
         if (StringUtils.hasText(tokenParam)) {
             return tokenParam;
@@ -56,4 +64,3 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         return null;
     }
 }
-

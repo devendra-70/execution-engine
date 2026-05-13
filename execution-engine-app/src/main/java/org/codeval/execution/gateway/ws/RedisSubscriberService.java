@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.codeval.execution.domain.ExecutionResultEvent;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
-import org.springframework.data.redis.listener.PatternTopic;
+import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -23,7 +23,7 @@ public class RedisSubscriberService implements MessageListener {
 
     @PostConstruct
     public void subscribe() {
-        listenerContainer.addMessageListener(this, new PatternTopic("execution-completed"));
+        listenerContainer.addMessageListener(this, new ChannelTopic("execution-completed"));
         log.info("Subscribed to Redis Pub/Sub channel: execution-completed");
     }
 

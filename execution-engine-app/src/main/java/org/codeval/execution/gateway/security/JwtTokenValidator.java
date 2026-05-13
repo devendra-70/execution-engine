@@ -34,9 +34,14 @@ public class JwtTokenValidator {
         }
     }
 
+    /**
+     * Safely extract userId regardless of whether JJWT stored the number as Integer or Long.
+     */
     public Optional<Long> extractUserId(String token) {
-        return validateAndExtract(token)
-                .map(claims -> claims.get("userId", Long.class));
+        return validateAndExtract(token).map(claims -> {
+            Object raw = claims.get("userId");
+            if (raw instanceof Number) return ((Number) raw).longValue();
+            return null;
+        });
     }
 }
-

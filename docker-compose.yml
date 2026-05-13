@@ -61,6 +61,16 @@ services:
       timeout: 10s
       retries: 5
 
+  # ─── Build the sandbox-wrapper image so DockerContainerPool can pull it ───
+  sandbox-wrapper-build:
+    build:
+      context: .
+      dockerfile: sandbox-wrapper/Dockerfile
+    image: codeval/sandbox-wrapper:latest   # tags the built image with this name
+    command: ["true"]                        # exits immediately after build/tag
+    profiles:
+      - build                               # only runs when: docker compose --profile build up
+
   execution-engine:
     build:
       context: .
@@ -86,6 +96,9 @@ services:
       KAFKA_BOOTSTRAP: kafka:9092
       JWT_SECRET: changeme-very-long-secret-key-for-dev-only-32chars
       DOCKER_HOST: unix:///var/run/docker.sock
+      SANDBOX_IMAGE: codeval/sandbox-wrapper:latest
+      # sandbox-host = "localhost" because containers are port-mapped to the host
+      SANDBOX_HOST: localhost
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
@@ -93,4 +106,3 @@ services:
 volumes:
   postgres_data:
   redis_data:
-

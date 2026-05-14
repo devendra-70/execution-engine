@@ -33,7 +33,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/ws/**").permitAll()
-                .requestMatchers("/api/dev/**").permitAll()   // dev-only token generator
+                .requestMatchers("/api/dev/**").permitAll()   // dev-only token generator + inspector
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

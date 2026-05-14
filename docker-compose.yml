@@ -105,7 +105,7 @@ services:
       # From inside the container, reach host-mapped sandbox ports via host.docker.internal
       SANDBOX_HOST: host.docker.internal
       # Pool size: number of sandbox containers pre-warmed on startup
-      APP_EXECUTION_POOL_WARM_MIN_SIZE: 3
+      APP_EXECUTION_POOL_WARM_MIN_SIZE: 10
     volumes:
       # Mount Docker socket so engine can spawn sandbox containers
       - /var/run/docker.sock:/var/run/docker.sock

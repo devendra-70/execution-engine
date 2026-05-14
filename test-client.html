@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CodEval — WebSocket Test Client</title>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<style>
+  body { font-family: monospace; max-width: 900px; margin: 20px auto; padding: 0 20px; background: #1e1e1e; color: #d4d4d4; }
+  h2 { color: #569cd6; }
+  label { color: #9cdcfe; }
+  input, textarea { width: 100%; box-sizing: border-box; background: #252526; color: #d4d4d4;
+    border: 1px solid #3c3c3c; padding: 6px; margin: 4px 0 10px; border-radius: 3px; font-family: monospace; }
+  button { background: #0e639c; color: white; border: none; padding: 8px 16px; cursor: pointer;
+    border-radius: 3px; margin-right: 8px; }
+  button:hover { background: #1177bb; }
+  button.danger { background: #c72e2e; }
+  #log { background: #0d0d0d; padding: 12px; border-radius: 4px; height: 320px; overflow-y: auto;
+    border: 1px solid #3c3c3c; font-size: 12px; white-space: pre-wrap; }
+  .ok { color: #4ec9b0; } .err { color: #f48771; } .info { color: #dcdcaa; } .recv { color: #c8b3f5; }
+  #statusDot { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+    background: #c72e2e; margin-right: 6px; }
+  #statusDot.connected { background: #4ec9b0; }
+</style>
+</head>
+<body>
+<h2>🔌 CodEval WebSocket Test Client</h2>
+
+<label>JWT Token:</label>
+<input id="token" placeholder="Paste JWT here (or generate via TestTokenGenerator)">
+
+<label>API Base URL:</label>
+<input id="baseUrl" value="http://localhost:8080">
+
+<label>Source Code (Java — class must be named Solution):</label>
+<textarea id="sourceCode" rows="6">public class Solution {
+    public static void main(String[] args) {
+        System.out.println("Hello World");
+    }
+}</textarea>
+
+<label>Problem ID:</label>
+<input id="problemId" value="1" style="width:80px">
+
+<br>
+<button onclick="connect()">Connect WebSocket</button>
+<button class="danger" onclick="disconnect()">Disconnect</button>
+<button onclick="submitCode()" style="background:#16825d">Submit Code</button>
+<button onclick="checkStatus()">Check Status (REST)</button>
+<button onclick="clearLog()" style="background:#555">Clear Log</button>
+
+<p><span id="statusDot"></span><span id="statusText">Disconnected</span>
+   &nbsp;|&nbsp; Last executionId: <code id="lastExecId">—</code></p>
+
+<div id="log"></div>
+
+<script>
+let stompClient = null;
+
+function log(msg, cls = '') {
+  const d = document.getElementById('log');
+  const ts = new Date().toLocaleTimeString();
+  d.innerHTML += `<span class="${cls}">[${ts}] ${msg}</span>\n`;
+  d.scrollTop = d.scrollHeight;
+}
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+function setStatus(connected) {
+  document.getElementById('statusDot').className = connected ? 'connected' : '';
+  document.getElementById('statusText').textContent = connected ? 'Connected' : 'Disconnected';
+}
+
+function getToken() { return document.getElementById('token').value.trim(); }
+function getBase() { return document.getElementById('baseUrl').value.trim(); }
+
+function connect() {
+  const token = getToken();
+  if (!token) { log('⚠ Paste a JWT token first', 'err'); return; }
+
+  const sockUrl = getBase() + '/ws?token=' + encodeURIComponent(token);
+  log('Connecting to ' + sockUrl + ' ...', 'info');
+
+  const socket = new SockJS(sockUrl);
+  stompClient = Stomp.over(socket);
+  stompClient.debug = null; // suppress verbose STOMP debug
+
+  stompClient.connect(
+    { Authorization: 'Bearer ' + token },
+    function (frame) {
+      log('✅ Connected: ' + frame, 'ok');
+      setStatus(true);
+
+      // Subscribe to user-specific result queue
+      stompClient.subscribe('/user/queue/execution-results', function (msg) {
+        const result = JSON.parse(msg.body);
+        log('📨 RESULT RECEIVED via WebSocket:\n' + JSON.stringify(result, null, 2), 'recv');
+      });
+      log('Subscribed to /user/queue/execution-results', 'ok');
+    },
+    function (err) {
+      log('❌ Connection error: ' + err, 'err');
+      setStatus(false);
+    }
+  );
+}
+
+function disconnect() {
+  if (stompClient) { stompClient.disconnect(); stompClient = null; }
+  setStatus(false);
+  log('Disconnected', 'info');
+}
+
+async function submitCode() {
+  const token = getToken();
+  if (!token) { log('⚠ No JWT token', 'err'); return; }
+
+  const body = {
+    problemId: parseInt(document.getElementById('problemId').value),
+    language: 'java',
+    mode: 'submit',
+    sourceCode: document.getElementById('sourceCode').value
+  };
+
+  log('→ POST /api/executions', 'info');
+  try {
+    const res = await fetch(getBase() + '/api/executions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    log('← HTTP ' + res.status + ': ' + JSON.stringify(data), res.ok ? 'ok' : 'err');
+    if (data.executionId) {
+      document.getElementById('lastExecId').textContent = data.executionId;
+      log('  executionId = ' + data.executionId, 'ok');
+      log('  Waiting for WebSocket result...', 'info');
+    }
+  } catch (e) { log('❌ ' + e, 'err'); }
+}
+
+async function checkStatus() {
+  const token = getToken();
+  const id = document.getElementById('lastExecId').textContent;
+  if (id === '—') { log('⚠ Submit code first to get an executionId', 'err'); return; }
+
+  try {
+    const res = await fetch(getBase() + '/api/executions/' + id + '/status', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await res.json();
+    log('← Status: ' + JSON.stringify(data), res.ok ? 'ok' : 'err');
+  } catch (e) { log('❌ ' + e, 'err'); }
+}
+</script>
+</body>
+</html>
+

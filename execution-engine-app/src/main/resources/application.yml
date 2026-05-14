@@ -14,7 +14,7 @@ app:
     orchestration-threads: 50
     timeout-ms: 3000
     pool:
-      warm-min-size: 5
+      warm-min-size: ${APP_EXECUTION_POOL_WARM_MIN_SIZE:5}
       idle-ttl-seconds: 300
     sandbox:
       memory-limit-mb: 256
@@ -30,7 +30,9 @@ app:
     testcase-ttl-minutes: 60
 
   docker:
-    host: ${DOCKER_HOST:unix:///var/run/docker.sock}
+    # Windows Docker Desktop: tcp://localhost:2375 (enable in Docker settings → Expose daemon on TCP)
+    # Linux/ECS:              unix:///var/run/docker.sock
+    host: ${DOCKER_HOST:tcp://localhost:2375}
     sandbox-image: ${SANDBOX_IMAGE:codeval/sandbox-wrapper:latest}
     sandbox-host: ${SANDBOX_HOST:localhost}   # Host used by engine to reach sandbox containers
 

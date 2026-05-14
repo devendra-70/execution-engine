@@ -17,7 +17,7 @@ public class TestCaseCacheService {
 
     private final TestCaseRepository testCaseRepository;
 
-    @Cacheable(cacheNames = "testCases", key = "#problemId")
+    @Cacheable(cacheNames = "testCases", key = "#p0")
     public List<TestCase> getTestCases(Long problemId) {
         log.info("Cache miss for problemId {}. Loading from DB.", problemId);
         List<TestCaseEntity> entities = testCaseRepository.findByProblemId(problemId);

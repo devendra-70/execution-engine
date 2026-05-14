@@ -41,6 +41,11 @@ public class SandboxMain {
                         // Read full request (client shuts output after sending)
                         byte[] requestBytes = clientSocket.getInputStream().readAllBytes();
 
+                        // Empty payload = readiness probe (TCP connect-only). Ignore silently.
+                        if (requestBytes.length == 0) {
+                            continue;
+                        }
+
                         SandboxRequest request = mapper.readValue(requestBytes, SandboxRequest.class);
                         List<TestCaseResult> results = runner.run(request);
 

@@ -50,17 +50,26 @@ public class ExecutionOrchestrationService {
         List<TestCaseResultEvent> testCaseResults;
         String problemName = "Problem " + taskEvent.getProblemId();
 
-        if (!containerPool.isDockerAvailable() || testCases.isEmpty()) {
+        if (!containerPool.isDockerAvailable()) {
             // Stub mode: Docker not available (dev/CI environment)
-            log.warn("Running in STUB mode - Docker unavailable or no test cases");
+            log.warn("Running in STUB mode - Docker unavailable");
+            testCaseResults = runStubExecution(testCases, taskEvent.getSourceCode());
+        } else if (testCases.isEmpty()) {
+            log.warn("No test cases for problemId {} — returning stub ACCEPTED", taskEvent.getProblemId());
             testCaseResults = runStubExecution(testCases, taskEvent.getSourceCode());
         } else {
             // 2. Acquire sandbox container from pool
-            SandboxContainer container = containerPool.acquire(timeoutMs + 2000);
+            log.info("[Orchestrator] Acquiring sandbox container (pool size={})", containerPool.getPoolSize());
+            SandboxContainer container = containerPool.acquire(timeoutMs + 5000);
+            log.info("[Orchestrator] Acquired container {} for executionId={}",
+                    container.getContainerId(), taskEvent.getExecutionId());
             try {
                 testCaseResults = container.execute(taskEvent.getSourceCode(), testCases, timeoutMs);
             } finally {
+                // ALWAYS release — even on TLE, OOM, or runtime exception
                 containerPool.release(container);
+                log.info("[Orchestrator] Released container {} (pool size={})",
+                        container.getContainerId(), containerPool.getPoolSize());
             }
         }
 

@@ -1,40 +1,38 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 app:
   jwt:
     secret-key: ${JWT_SECRET:changeme-very-long-secret-key-for-dev-only-32chars}
 
   kafka:
-    topic: execution-tasks
-    partitions: 50
-    concurrency: 25
+    topic: ${APP_KAFKA_TOPIC:execution-tasks}
+    partitions: ${APP_KAFKA_PARTITIONS:50}
+    concurrency: ${APP_KAFKA_CONCURRENCY:25}
 
   execution:
-    orchestration-threads: 50
-    timeout-ms: 3000
+    orchestration-threads: ${APP_EXECUTION_ORCHESTRATION_THREADS:50}
+    timeout-ms: ${APP_EXECUTION_TIMEOUT_MS:3000}
     pool:
       warm-min-size: ${APP_EXECUTION_POOL_WARM_MIN_SIZE:5}
-      idle-ttl-seconds: 300
+      idle-ttl-seconds: ${APP_EXECUTION_POOL_IDLE_TTL_SECONDS:300}
     sandbox:
-      memory-limit-mb: 256
-      jvm-xms: 128m
-      jvm-xmx: 256m
+      memory-limit-mb: ${APP_SANDBOX_MEMORY_LIMIT_MB:256}
+      jvm-xms: ${APP_SANDBOX_JVM_XMS:128m}
+      jvm-xmx: ${APP_SANDBOX_JVM_XMX:256m}
 
   redis:
-    status-ttl-seconds: 600
+    status-ttl-seconds: ${APP_REDIS_STATUS_TTL_SECONDS:600}
     rate-limit:
-      requests-per-minute: 5
+      requests-per-minute: ${APP_REDIS_RATE_LIMIT_RPM:5}
 
   cache:
-    testcase-ttl-minutes: 60
+    testcase-ttl-minutes: ${APP_CACHE_TESTCASE_TTL_MINUTES:60}
 
   docker:
-    # Windows Docker Desktop: tcp://localhost:2375 (enable in Docker settings → Expose daemon on TCP)
-    # Linux/ECS:              unix:///var/run/docker.sock
     host: ${DOCKER_HOST:tcp://localhost:2375}
     sandbox-image: ${SANDBOX_IMAGE:codeval/sandbox-wrapper:latest}
-    sandbox-host: ${SANDBOX_HOST:localhost}   # Host used by engine to reach sandbox containers
+    sandbox-host: ${SANDBOX_HOST:localhost}
 
 spring:
   datasource:
@@ -45,13 +43,13 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: ${SPRING_JPA_DDL_AUTO:update}
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
-          batch_size: 50
+          batch_size: ${HIBERNATE_BATCH_SIZE:50}
         order_inserts: true
         order_updates: true
         batch_versioned_data: true
@@ -79,7 +77,6 @@ management:
 
 logging:
   level:
-    org.codeval: DEBUG
-    org.springframework.kafka: INFO
-    org.springframework.security: INFO
-
+    org.codeval: ${LOG_LEVEL_APP:DEBUG}
+    org.springframework.kafka: ${LOG_LEVEL_KAFKA:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:INFO}

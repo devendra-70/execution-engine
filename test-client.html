@@ -45,6 +45,7 @@
 <br>
 <button onclick="connect()">Connect WebSocket</button>
 <button class="danger" onclick="disconnect()">Disconnect</button>
+<button onclick="fetchFreshToken()" style="background:#7b4f9e">Get Fresh Token</button>
 <button onclick="submitCode()" style="background:#16825d">Submit Code</button>
 <button onclick="checkStatus()">Check Status (REST)</button>
 <button onclick="clearLog()" style="background:#555">Clear Log</button>
@@ -56,6 +57,16 @@
 
 <script>
 let stompClient = null;
+
+async function fetchFreshToken() {
+  try {
+    log('Fetching fresh token from /api/dev/token ...', 'info');
+    const res = await fetch(getBase() + '/api/dev/token');
+    const data = await res.json();
+    document.getElementById('token').value = data.token;
+    log('Fresh token applied (expires in ' + data.expiresIn + '). You can now Connect.', 'ok');
+  } catch (e) { log('Failed to fetch token: ' + e, 'err'); }
+}
 
 function log(msg, cls = '') {
   const d = document.getElementById('log');

@@ -1,71 +1,86 @@
 # E2E Test Script for CodEval Execution Engine
-# This script tests the full flow: JWT → REST submission → Kafka → Orchestration → Sandbox → WebSocket
+# Tests the full flow: JWT -> REST submission -> Kafka -> Orchestration -> Sandbox -> WebSocket
 
 Write-Host "=== CodEval Execution Engine E2E Test ===" -ForegroundColor Cyan
-Write-Host "`nStep 1: Generate JWT Token" -ForegroundColor Yellow
 
-# Generate JWT token
-$tokenOutput = & mvn -pl execution-engine-app exec:java -Dexec.mainClass="org.codeval.execution.util.TestTokenGenerator" -q 2>&1
-$token = $tokenOutput -match "eyJ" | Select-Object -First 1
+# ---------------------------------------------------------------------------
+Write-Host ""
+Write-Host "Step 1: Generate JWT Token" -ForegroundColor Yellow
+
+$tokenOutput = & mvn -pl execution-engine-app "exec:java" "-Dexec.mainClass=org.codeval.execution.util.TestTokenGenerator" 2>&1
+
+$token = ($tokenOutput | Where-Object { $_ -match "^eyJ" } | Select-Object -First 1)
 
 if ($token) {
-    Write-Host "✓ Token generated: $token" -ForegroundColor Green
+    Write-Host "[OK] Token generated: $token" -ForegroundColor Green
 } else {
-    Write-Host "✗ Failed to generate token" -ForegroundColor Red
+    Write-Host "[FAIL] Failed to generate token. Output was:" -ForegroundColor Red
+    $tokenOutput | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
     exit 1
 }
 
-Write-Host "`nStep 2: Test REST API - /actuator/health" -ForegroundColor Yellow
+# ---------------------------------------------------------------------------
+Write-Host ""
+Write-Host "Step 2: Health check - GET /actuator/health" -ForegroundColor Yellow
 try {
-    $health = (New-Object System.Net.WebClient).DownloadString("http://localhost:8080/actuator/health") | ConvertFrom-Json
-    Write-Host "✓ Health: $($health.status)" -ForegroundColor Green
+    $health = Invoke-RestMethod -Uri "http://localhost:8080/actuator/health" -Method Get
+    Write-Host "[OK] Health: $($health.status)" -ForegroundColor Green
 } catch {
-    Write-Host "✗ Health check failed: $_" -ForegroundColor Red
+    Write-Host "[FAIL] Health check failed: $_" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "`nStep 3: Test REST API - POST /api/executions" -ForegroundColor Yellow
+# ---------------------------------------------------------------------------
+Write-Host ""
+Write-Host "Step 3: Submit execution - POST /api/executions" -ForegroundColor Yellow
+
 $execRequest = @{
-    problemId = 1
-    language = "java"
-    mode = "competitive"
-    sourceCode = @"
-public class Solution {
-    public static void main(String[] args) {
-        System.out.println("Hello");
-    }
-}
-"@
+    problemId  = 1
+    language   = "java"
+    mode       = "competitive"
+    sourceCode = 'public class Solution { public static void main(String[] args) { System.out.println("Hello"); } }'
 } | ConvertTo-Json
 
 try {
-    $webClient = New-Object System.Net.WebClient
-    $webClient.Headers.Add("Authorization", "Bearer $token")
-    $webClient.Headers.Add("Content-Type", "application/json")
-
-    $execResponse = $webClient.UploadString("http://localhost:8080/api/executions", "POST", $execRequest) | ConvertFrom-Json
+    $headers = @{
+        "Authorization" = "Bearer $token"
+        "Content-Type"  = "application/json"
+    }
+    $execResponse = Invoke-RestMethod -Uri "http://localhost:8080/api/executions" `
+        -Method Post -Headers $headers -Body $execRequest
     $executionId = $execResponse.executionId
 
-    Write-Host "✓ Submission accepted" -ForegroundColor Green
-    Write-Host "  ExecutionId: $executionId" -ForegroundColor Gray
+    Write-Host "[OK] Submission accepted" -ForegroundColor Green
+    Write-Host "     ExecutionId: $executionId" -ForegroundColor Gray
 } catch {
-    Write-Host "✗ REST API submission failed: $_" -ForegroundColor Red
+    Write-Host "[FAIL] REST API submission failed: $_" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "`nStep 4: Poll Redis for status updates" -ForegroundColor Yellow
+# ---------------------------------------------------------------------------
+Write-Host ""
+Write-Host "Step 4: Poll for status - 10 attempts" -ForegroundColor Yellow
 for ($i = 0; $i -lt 10; $i++) {
     Start-Sleep -Seconds 1
+    $step = $i + 1
     try {
-        $statusKey = "execution:status:$executionId"
-        $psqlCmd = "SELECT COUNT(*) FROM submissions WHERE id = '$executionId'::uuid LIMIT 1;"
-
-        Write-Host "  [$i] Checking execution status..." -ForegroundColor Gray
+        $statusHeaders = @{ "Authorization" = "Bearer $token" }
+        $statusResponse = Invoke-RestMethod `
+            -Uri "http://localhost:8080/api/executions/$executionId/status" `
+            -Method Get -Headers $statusHeaders
+        $currentStatus = $statusResponse.status
+        Write-Host ("  [{0}/10] Status: {1}" -f $step, $currentStatus) -ForegroundColor Gray
+        if ($currentStatus -notin @("PENDING", "RUNNING")) {
+            Write-Host "  Final status reached: $currentStatus" -ForegroundColor Cyan
+            break
+        }
     } catch {
-        # Silently continue
+        Write-Host ("  [{0}/10] Could not fetch status: {1}" -f $step, $_) -ForegroundColor DarkGray
     }
 }
 
-Write-Host "`n✓ E2E Test Complete!" -ForegroundColor Green
-Write-Host "`nNext: Open test-client.html in browser and paste the token above to test WebSocket." -ForegroundColor Cyan
-
+# ---------------------------------------------------------------------------
+Write-Host ""
+Write-Host "[DONE] E2E Test Complete!" -ForegroundColor Green
+Write-Host "  Kafka UI  -> http://localhost:8090" -ForegroundColor Cyan
+Write-Host "  WebSocket -> open test-client.html in browser and paste the token above" -ForegroundColor Cyan

@@ -1,19 +1,22 @@
 version: '3.8'
 
+# All default values live in .env — edit that file to tune local behaviour.
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: codeval-postgres
+    env_file: .env
     environment:
-      POSTGRES_DB: codeval
-      POSTGRES_USER: codeval
-      POSTGRES_PASSWORD: codeval
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U codeval"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,7 +25,7 @@ services:
     image: redis:7-alpine
     container_name: codeval-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     command: redis-server --save 60 1 --loglevel warning
     volumes:
       - redis_data:/data
@@ -51,7 +54,6 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # Two listeners: one for inter-container (INTERNAL) and one for host access (EXTERNAL)
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://codeval-kafka:29092,EXTERNAL://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
@@ -65,21 +67,37 @@ services:
       timeout: 10s
       retries: 5
 
+  # ─── Kafka UI — browse topics, messages and consumer group lag ───────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: codeval-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${KAFKA_UI_PORT}:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: codeval-kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: codeval-zookeeper:2181
+    restart: unless-stopped
+
   # ─── Build the sandbox-wrapper image so DockerContainerPool can pull it ───
   sandbox-wrapper-build:
     build:
       context: .
       dockerfile: sandbox-wrapper/Dockerfile
-    image: codeval/sandbox-wrapper:latest   # tags the built image with this name
-    command: ["true"]                        # exits immediately after build/tag
+    image: ${SANDBOX_IMAGE}
+    command: ["true"]
     profiles:
-      - build                               # only runs when: docker compose --profile build up
+      - build
 
   execution-engine:
     build:
       context: .
       dockerfile: execution-engine-app/Dockerfile
     container_name: codeval-execution-engine
+    env_file: .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,28 +106,9 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      - "8080:8080"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: codeval
-      DB_USER: codeval
-      DB_PASS: codeval
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      KAFKA_BOOTSTRAP: codeval-kafka:29092
-      JWT_SECRET: changeme-very-long-secret-key-for-dev-only-32chars
-      # Rancher Desktop (CE:moby) uses Docker socket
-      DOCKER_HOST: unix:///var/run/docker.sock
-      SANDBOX_IMAGE: codeval/sandbox-wrapper:latest
-      # From inside the container, reach host-mapped sandbox ports via host.docker.internal
-      SANDBOX_HOST: host.docker.internal
-      # Pool size: number of sandbox containers pre-warmed on startup
-      APP_EXECUTION_POOL_WARM_MIN_SIZE: 10
+      - "${SERVER_PORT}:8080"
     volumes:
-      # Mount Docker socket so engine can spawn sandbox containers
       - /var/run/docker.sock:/var/run/docker.sock
-    # Ensures host.docker.internal resolves on Linux (automatic on Docker Desktop Win/Mac)
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

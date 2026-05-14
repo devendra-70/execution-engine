@@ -1,7 +1,7 @@
 package com.epam.execution_engine_service.metrics.orchestrator;
 
 import com.epam.execution_engine_service.config.ApplicationProperties;
-import com.epam.execution_engine_service.orchestrator.ContainerSpawner;
+import com.epam.execution_engine_service.service.ContainerPoolService;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
@@ -101,7 +101,7 @@ public class SandboxPoolMetricsGauge {
     private static final String COMPONENT_NAME = "SandboxPoolMetricsGauge";
 
     private final MeterRegistry meterRegistry;
-    private final ContainerSpawner containerSpawner;
+    private final ContainerPoolService containerPoolService;
     private final ApplicationProperties applicationProperties;
 
     /**
@@ -109,17 +109,17 @@ public class SandboxPoolMetricsGauge {
      *
      * <p>Registers the gauge during bean initialization.
      *
-     * @param meterRegistry          Micrometer MeterRegistry for metric registration
-     * @param containerSpawner       Orchestrator managing sandbox container lifecycle
-     * @param applicationProperties  Application configuration containing pool thresholds
+     * @param meterRegistry         Micrometer MeterRegistry for metric registration
+     * @param containerPoolService  Pool service owning the authoritative available-container count
+     * @param applicationProperties Application configuration containing pool thresholds
      */
     @Autowired
     public SandboxPoolMetricsGauge(
             MeterRegistry meterRegistry,
-            ContainerSpawner containerSpawner,
+            ContainerPoolService containerPoolService,
             ApplicationProperties applicationProperties) {
         this.meterRegistry = Objects.requireNonNull(meterRegistry, "meterRegistry cannot be null");
-        this.containerSpawner = Objects.requireNonNull(containerSpawner, "containerSpawner cannot be null");
+        this.containerPoolService = Objects.requireNonNull(containerPoolService, "containerPoolService cannot be null");
         this.applicationProperties = Objects.requireNonNull(applicationProperties, "applicationProperties cannot be null");
 
         initializeGauge();
@@ -166,8 +166,8 @@ public class SandboxPoolMetricsGauge {
 
             logger.info("✓ {} registered successfully", COMPONENT_NAME);
             logger.info("  Metric: {}", METRIC_NAME);
-            logger.info("  Source: ContainerSpawner.getPoolSize()");
-            logger.info("  Threshold: {}% exhaustion", 
+            logger.info("  Source: ContainerPoolService.getAvailableCount()");
+            logger.info("  Threshold: {}% exhaustion",
                     applicationProperties.getMetrics().getSandboxPool().getExhaustionThresholdPercent());
 
         } catch (Exception e) {
@@ -191,12 +191,11 @@ public class SandboxPoolMetricsGauge {
      */
     private int getAvailablePoolSize() {
         try {
-            // ✅ CRITICAL FIX: Call actual ContainerSpawner pool API
-            int poolSize = containerSpawner.getPoolSize();
+            int poolSize = containerPoolService.getAvailableCount();
             logger.debug("Current available pool size: {} containers", poolSize);
             return poolSize;
         } catch (Exception e) {
-            logger.warn("Error retrieving pool size from ContainerSpawner: {}", e.getMessage(), e);
+            logger.warn("Error retrieving pool size from ContainerPoolService: {}", e.getMessage(), e);
             // Fail-open: return 0 to indicate unknown state (CloudWatch will detect anomaly)
             return 0;
         }

@@ -160,9 +160,13 @@ class ContainerSpawnerSecurityTest {
     @Test
     @DisplayName("buildDockerCommand_seccompProfile_applied")
     void buildDockerCommand_seccompProfile_applied() {
+        // Enable seccomp and set profile path so the profile is injected into the command
+        when(sandboxConfig.isSeccompEnabled()).thenReturn(true);
+        when(sandboxConfig.getSeccompProfilePath()).thenReturn("/etc/seccomp/seccomp-profile.json");
+
         List<String> cmd = getDockerCommand("test code");
-        
-        assertTrue(cmd.contains("--security-opt"), 
+
+        assertTrue(cmd.contains("--security-opt"),
             "Security options should include seccomp");
         String seccompArg = null;
         for (int i = 0; i < cmd.size() - 1; i++) {
@@ -172,7 +176,7 @@ class ContainerSpawnerSecurityTest {
             }
         }
         assertNotNull(seccompArg, "Seccomp profile should be applied");
-        assertTrue(seccompArg.contains("seccomp-profile.json"), 
+        assertTrue(seccompArg.contains("seccomp-profile.json"),
             "Seccomp should use seccomp-profile.json");
     }
 

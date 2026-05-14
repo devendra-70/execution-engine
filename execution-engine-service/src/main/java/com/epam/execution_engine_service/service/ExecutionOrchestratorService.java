@@ -11,34 +11,42 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.*;
 
 /**
- * ExecutionOrchestratorService — Orchestration pipeline (SRS §6, §11, §14, §4)
- * 
- * Orchestrates the complete execution flow:
- * 1. Update Redis status to RUNNING (Step 4, SRS §8)
- * 2. Fetch test cases from cache (Step 8, SRS §4.2)
- * 3. Acquire container from pool (Step 9, SRS §4.3)
- * 4. Execute via socket-based communication (Step 10, SRS §6.2, §10)
- * 5. Aggregate verdict (Step 11, SRS §11)
- * 6. Return ExecutionResultEvent (Step 12)
- * 7. Persistence and Redis updates handled by PersistenceService
- * 8. WebSocket broadcasting handled by ExecutionResultBroadcaster
- * 
- * This service runs in Pool B (TaskExecutor thread pool).
+ * ExecutionOrchestratorService — Pool B orchestration pipeline (SRS §4.1, §4.3, §6, §10, §12).
+ *
+ * <p>Implements the single-container submission lifecycle required by EPMICMPCOD-533:
+ * <ol>
+ *   <li>Update Redis status to RUNNING.</li>
+ *   <li>Fetch test cases from Caffeine cache (SRS §4.2).</li>
+ *   <li>Acquire <em>one</em> container from the pool for the entire submission (SRS §4.3).</li>
+ *   <li>Execute: send source code once; iterate test cases via socket; new ClassLoader per
+ *       test case inside the wrapper (SRS §6.2).</li>
+ *   <li>Aggregate verdict (SRS §11).</li>
+ *   <li>On TLE: SIGKILL container via {@link ContainerPoolService#discardAndReplace(ContainerPoolService.ContainerHandle)};
+ *       never return to pool (SRS §10, EPMICMPCOD-532).</li>
+ *   <li>On COMPILE_ERROR or normal completion: {@link ContainerPoolService#release(ContainerPoolService.ContainerHandle)}
+ *       (container healthy — EPMICMPCOD-533 AC 4).</li>
+ *   <li>Broadcast result via WebSocket.</li>
+ * </ol>
+ *
+ * <p>All timeout values are strictly sourced from {@code app.execution.timeout-ms} — never
+ * hardcoded (SRS §12).
  */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class ExecutionOrchestratorService {
 
-    // Configuration constants (SRS §12, §4.1)
-    private static final String REDIS_STATUS_RUNNING = "RUNNING";
+    private static final String REDIS_STATUS_RUNNING   = "RUNNING";
     private static final String REDIS_STATUS_COMPLETED = "COMPLETED";
-    private static final long CONTAINER_ACQUIRE_TIMEOUT_SECONDS = 5;
+    private static final long   CONTAINER_ACQUIRE_TIMEOUT_SECONDS = 5;
     private static final String EXECUTION_MODE_CLASS_NAME = "Solution";
-    private static final String VERDICT_UNKNOWN = "UNKNOWN";
+    private static final String VERDICT_UNKNOWN       = "UNKNOWN";
     private static final String VERDICT_RUNTIME_ERROR = "RUNTIME_ERROR";
+    private static final String VERDICT_TLE           = "TIME_LIMIT_EXCEEDED";
+    private static final String VERDICT_COMPILE_ERROR = "COMPILE_ERROR";
     private static final double ERROR_SCORE = 0.0;
 
     private final TestCaseService testCaseService;
@@ -48,23 +56,36 @@ public class ExecutionOrchestratorService {
     private final SandboxClient sandboxClient;
     private final ExecutionResultBroadcaster resultBroadcaster;
 
+    /**
+     * Hard timeout per submission sourced from {@code app.execution.timeout-ms} (SRS §12).
+     * Default: 3000 ms.
+     */
     @Value("${app.execution.timeout-ms:3000}")
     private long executionTimeoutMs;
-    
-    @Value("${app.sandbox.host:localhost}")
-    private String sandboxHost;
-    
-    @Value("${app.sandbox.port:9999}")
-    private int sandboxPort;
 
     /**
-     * Execute a submission orchestration (SRS §11-14)
-     * 
-     * @param event ExecutionTaskEvent from Kafka
-     * @return ExecutionResultEvent with final verdict and test case results
+     * Executor dedicated to the blocking sandbox socket call so that the TLE
+     * {@link Future#get(long, TimeUnit)} enforces the hard timeout without blocking
+     * the Pool B thread indefinitely.
+     */
+    private final ExecutorService sandboxExecutor =
+            Executors.newCachedThreadPool(r -> {
+                Thread t = new Thread(r, "sandbox-exec");
+                t.setDaemon(true);
+                return t;
+            });
+
+    /**
+     * Execute a submission — entry point called from Pool B (SRS §4.1).
+     *
+     * <p>Uses <em>exactly one</em> container from acquisition to return/discard
+     * (EPMICMPCOD-533 AC 1, AC 6).
+     *
+     * @param event {@link ExecutionTaskEvent} forwarded from the Kafka listener
+     * @return {@link ExecutionResultEvent} with aggregated verdict and per-test-case results
      */
     public ExecutionResultEvent execute(ExecutionTaskEvent event) {
-        log.info("Starting execution orchestration for executionId: {}, problemId: {}, userId: {}", 
+        log.info("Starting execution orchestration: executionId={}, problemId={}, userId={}",
                 event.getExecutionId(), event.getProblemId(), event.getUserId());
 
         long startTime = System.currentTimeMillis();
@@ -75,15 +96,13 @@ public class ExecutionOrchestratorService {
                 .completedAt(Instant.now());
 
         try {
-            // Step 4: Update Redis status to RUNNING (SRS §8)
+            // Step 1: Redis → RUNNING
             redisStatusService.setStatus(event.getExecutionId(), REDIS_STATUS_RUNNING);
-            log.debug("Status updated to RUNNING in Redis: executionId={}", event.getExecutionId());
 
-            // Step 8: Fetch test cases from Caffeine cache (SRS §4.2, §8)
+            // Step 2: Fetch test cases from Caffeine cache (SRS §4.2)
             List<TestCaseDto> testCases = testCaseService.getTestCases(event.getProblemId());
-            
             if (testCases.isEmpty()) {
-                log.warn("No test cases found for problemId: {}", event.getProblemId());
+                log.warn("No test cases found for problemId={}", event.getProblemId());
                 return resultBuilder
                         .verdict(VERDICT_UNKNOWN)
                         .score(ERROR_SCORE)
@@ -93,15 +112,14 @@ public class ExecutionOrchestratorService {
                         .build();
             }
 
-            log.debug("Retrieved {} test cases from cache for problemId: {}", testCases.size(), event.getProblemId());
-
-            // Step 9: Acquire container from pool (SRS §4.3)
+            // Step 3: Acquire one container for the whole submission (SRS §4.3, EPMICMPCOD-533 AC 1)
             ContainerPoolService.ContainerHandle container;
             try {
-                container = containerPoolService.acquire(java.time.Duration.ofSeconds(CONTAINER_ACQUIRE_TIMEOUT_SECONDS));
-                log.debug("Container acquired: {}", container.getId());
+                container = containerPoolService.acquire(
+                        java.time.Duration.ofSeconds(CONTAINER_ACQUIRE_TIMEOUT_SECONDS));
+                log.debug("Container acquired: id={}, port={}", container.getId(), container.getPort());
             } catch (Exception e) {
-                log.error("Failed to acquire container", e);
+                log.error("Failed to acquire container for executionId={}", event.getExecutionId(), e);
                 return resultBuilder
                         .verdict(VERDICT_RUNTIME_ERROR)
                         .score(ERROR_SCORE)
@@ -111,26 +129,77 @@ public class ExecutionOrchestratorService {
                         .build();
             }
 
-            // Step 10: Execution loop via socket-based sandbox communication (SRS §10, §6.2)
-            List<TestCaseResultDto> testCaseResults = executeViaSocket(
-                    event.getExecutionId(),
-                    event.getSourceCode(),
-                    testCases,
-                    EXECUTION_MODE_CLASS_NAME
+            // Step 4: Execute via socket — wrapped in a Future to enforce TLE timeout (SRS §10)
+            final ContainerPoolService.ContainerHandle finalContainer = container;
+            final UUID executionId = event.getExecutionId();
+
+            Future<List<TestCaseResultDto>> future = sandboxExecutor.submit(() ->
+                    executeViaSocket(
+                            executionId,
+                            event.getSourceCode(),
+                            testCases,
+                            EXECUTION_MODE_CLASS_NAME,
+                            finalContainer.getHost(),
+                            finalContainer.getPort()
+                    )
             );
 
-            // Release container back to pool
-            containerPoolService.release(container);
-            log.debug("Container released: {}", container.getId());
+            List<TestCaseResultDto> testCaseResults;
+            try {
+                testCaseResults = future.get(executionTimeoutMs, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                // TLE — SIGKILL the container; it is never returned to the pool (EPMICMPCOD-532)
+                future.cancel(true);
+                long elapsed = System.currentTimeMillis() - startTime;
+                log.warn("TLE: executionId={}, containerId={}, elapsedMs={}",
+                        executionId, container.getContainerId(), elapsed);
+                containerPoolService.discardAndReplace(container);
 
-            // Step 11: Aggregate verdict (SRS §11)
+                return resultBuilder
+                        .verdict(VERDICT_TLE)
+                        .score(ERROR_SCORE)
+                        .testCaseResults(new ArrayList<>())
+                        .totalRuntimeMs(elapsed)
+                        .totalMemoryBytes(0L)
+                        .build();
+            } catch (ExecutionException e) {
+                log.error("Sandbox execution exception for executionId={}", executionId, e.getCause());
+                containerPoolService.release(container);
+                return resultBuilder
+                        .verdict(VERDICT_RUNTIME_ERROR)
+                        .score(ERROR_SCORE)
+                        .testCaseResults(new ArrayList<>())
+                        .totalRuntimeMs(System.currentTimeMillis() - startTime)
+                        .totalMemoryBytes(0L)
+                        .build();
+            }
+
+            // COMPILE_ERROR — container is still healthy; return it to the pool (EPMICMPCOD-533 AC 4)
+            boolean isCompileError = !testCaseResults.isEmpty() &&
+                    VERDICT_COMPILE_ERROR.equalsIgnoreCase(testCaseResults.get(0).getStatus());
+
+            // Step 5: Release container (healthy after success or compile error) (EPMICMPCOD-533 AC 6)
+            containerPoolService.release(container);
+            log.debug("Container released: id={}", container.getId());
+
+            if (isCompileError) {
+                log.info("Compile error for executionId={}", executionId);
+                return resultBuilder
+                        .verdict(VERDICT_COMPILE_ERROR)
+                        .score(ERROR_SCORE)
+                        .testCaseResults(testCaseResults)
+                        .totalRuntimeMs(System.currentTimeMillis() - startTime)
+                        .totalMemoryBytes(0L)
+                        .build();
+            }
+
+            // Step 6: Aggregate verdict (SRS §11)
             String verdict = verdictAggregator.aggregateVerdict(testCaseResults);
             long passCount = testCaseResults.stream()
                     .filter(r -> "PASS".equalsIgnoreCase(r.getStatus()))
                     .count();
             Double score = verdictAggregator.calculateScore(passCount, testCaseResults.size());
 
-            long duration = System.currentTimeMillis() - startTime;
             long totalRuntime = testCaseResults.stream()
                     .mapToLong(TestCaseResultDto::getExecutionTimeMs)
                     .sum();
@@ -138,9 +207,10 @@ public class ExecutionOrchestratorService {
                     .mapToLong(TestCaseResultDto::getMemoryBytes)
                     .max()
                     .orElse(0L);
+            long duration = System.currentTimeMillis() - startTime;
 
-            log.info("Execution orchestration completed: executionId={}, verdict={}, score={}, duration={}ms, passCount={}/{}", 
-                    event.getExecutionId(), verdict, score, duration, passCount, testCaseResults.size());
+            log.info("Orchestration complete: executionId={}, verdict={}, score={}, durationMs={}, pass={}/{}",
+                    executionId, verdict, score, duration, passCount, testCaseResults.size());
 
             ExecutionResultEvent result = resultBuilder
                     .verdict(verdict)
@@ -150,12 +220,11 @@ public class ExecutionOrchestratorService {
                     .totalMemoryBytes(totalMemory)
                     .build();
 
-            // Step 14: Broadcast result to client (async, non-blocking)
+            // Step 7: Broadcast result (async, best-effort)
             try {
                 resultBroadcaster.broadcastResult(event.getUserId(), result);
             } catch (Exception e) {
-                log.warn("Failed to broadcast result to client", e);
-                // Don't fail orchestration if broadcast fails
+                log.warn("Failed to broadcast result for executionId={}: {}", executionId, e.getMessage());
             }
 
             return result;
@@ -163,34 +232,40 @@ public class ExecutionOrchestratorService {
         } catch (Exception e) {
             log.error("Execution orchestration failed: executionId={}", event.getExecutionId(), e);
             return resultBuilder
-                    .verdict("RUNTIME_ERROR")
-                    .score(0.0)
+                    .verdict(VERDICT_RUNTIME_ERROR)
+                    .score(ERROR_SCORE)
                     .testCaseResults(new ArrayList<>())
                     .totalRuntimeMs(0L)
                     .totalMemoryBytes(0L)
                     .build();
         } finally {
-            // Update Redis status to COMPLETED
-            redisStatusService.setStatus(event.getExecutionId(), "COMPLETED");
+            redisStatusService.setStatus(event.getExecutionId(), REDIS_STATUS_COMPLETED);
         }
     }
 
     /**
-     * Execute test cases via socket communication with sandbox wrapper (SRS §10, §6.2)
-     * 
-     * @param executionId Unique execution identifier
-     * @param sourceCode Java source code to execute
-     * @param testCases Test cases to run
-     * @param className Compiled class name (e.g., "Solution")
-     * @return List of TestCaseResultDto with execution results
+     * Delegate to {@link SandboxClient#executeViaSocket} using the per-container host and port
+     * obtained from the acquired {@link ContainerPoolService.ContainerHandle} (EPMICMPCOD-533).
+     *
+     * <p>Source code is sent once; the wrapper compiles once; test cases are fed iteratively;
+     * each test case uses a new {@code URLClassLoader} inside the wrapper (SRS §6.2).
+     *
+     * @param executionId unique execution identifier
+     * @param sourceCode  Java source to compile and run
+     * @param testCases   ordered list of test cases for the submission
+     * @param className   solution class name (always {@code "Solution"})
+     * @param host        sandbox container host
+     * @param port        sandbox container port
+     * @return list of per-test-case results
      */
     private List<TestCaseResultDto> executeViaSocket(
             UUID executionId,
             String sourceCode,
             List<TestCaseDto> testCases,
-            String className) {
+            String className,
+            String host,
+            int port) {
 
-        // Convert TestCaseDto to SandboxClient.SandboxTestCase
         List<SandboxClient.SandboxTestCase> sandboxTestCases = testCases.stream()
                 .map(tc -> SandboxClient.SandboxTestCase.builder()
                         .id(tc.getId().toString())
@@ -199,40 +274,29 @@ public class ExecutionOrchestratorService {
                         .build())
                 .toList();
 
-        // Execute via socket
         List<TestCaseResultDto> results = sandboxClient.executeViaSocket(
-                sandboxHost,
-                sandboxPort,
-                executionId,
-                className,
-                sourceCode,
-                sandboxTestCases
-        );
+                host, port, executionId, className, sourceCode, sandboxTestCases);
 
-        // Map results to expected format and compare with expected output
+        // Map actual vs expected and derive PASS / WRONG_ANSWER
         return results.stream()
                 .map(result -> {
-                    // Find corresponding test case for expected output
                     TestCaseDto testCase = testCases.stream()
-                            .filter(tc -> tc.getId().toString().equals(result.getTestCaseId().toString()))
+                            .filter(tc -> tc.getId().toString().equals(result.getTestCaseId() != null
+                                    ? result.getTestCaseId().toString() : ""))
                             .findFirst()
                             .orElse(null);
-                    
+
                     if (testCase != null) {
                         result.setExpectedOutput(testCase.getExpectedOutput());
-                        
-                        // Determine pass/fail based on actual vs expected
-                        if ("OK".equalsIgnoreCase(result.getStatus()) && 
-                            testCase.getExpectedOutput().equals(result.getActualOutput())) {
+                        if ("OK".equalsIgnoreCase(result.getStatus()) &&
+                                testCase.getExpectedOutput().equals(result.getActualOutput())) {
                             result.setStatus("PASS");
                         } else if ("OK".equalsIgnoreCase(result.getStatus())) {
                             result.setStatus("WRONG_ANSWER");
                         }
                     }
-                    
                     return result;
                 })
                 .toList();
     }
-
 }

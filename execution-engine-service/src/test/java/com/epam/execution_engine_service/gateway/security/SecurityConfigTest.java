@@ -1,7 +1,5 @@
 package com.epam.execution_engine_service.gateway.security;
 
-import com.epam.execution_engine_service.gateway.JwtAuthFilter;
-import com.epam.execution_engine_service.gateway.SecurityConfig;
 import com.epam.execution_engine_service.gateway.ratelimit.RateLimitFilter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

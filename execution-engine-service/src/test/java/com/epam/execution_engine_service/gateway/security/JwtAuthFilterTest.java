@@ -19,9 +19,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import com.epam.execution_engine_service.gateway.JwtAuthFilter;
-import com.epam.execution_engine_service.gateway.JwtTokenValidator;
-
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

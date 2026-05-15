@@ -1,4 +1,4 @@
-package com.epam.execution_engine_service.gateway;
+package com.epam.execution_engine_service.gateway.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;

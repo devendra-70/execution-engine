@@ -1,7 +1,8 @@
-package com.epam.execution_engine_service.gateway;
+package com.epam.execution_engine_service.gateway.security;
 
 import lombok.RequiredArgsConstructor;
 import com.epam.execution_engine_service.gateway.ratelimit.RateLimitFilter;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;

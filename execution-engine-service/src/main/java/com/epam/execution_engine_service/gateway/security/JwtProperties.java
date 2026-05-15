@@ -1,4 +1,4 @@
-package com.epam.execution_engine_service.gateway;
+package com.epam.execution_engine_service.gateway.security;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

@@ -1,195 +1,82 @@
 server:
-  port: 8080
-  servlet:
-    context-path: /
+  port: ${SERVER_PORT:8080}
+
+app:
+  jwt:
+    secret-key: ${JWT_SECRET:changeme-very-long-secret-key-for-dev-only-32chars}
+
+  kafka:
+    topic: ${APP_KAFKA_TOPIC:execution-tasks}
+    partitions: ${APP_KAFKA_PARTITIONS:50}
+    concurrency: ${APP_KAFKA_CONCURRENCY:25}
+
+  execution:
+    orchestration-threads: ${APP_EXECUTION_ORCHESTRATION_THREADS:50}
+    timeout-ms: ${APP_EXECUTION_TIMEOUT_MS:3000}
+    pool:
+      warm-min-size: ${APP_EXECUTION_POOL_WARM_MIN_SIZE:5}
+      idle-ttl-seconds: ${APP_EXECUTION_POOL_IDLE_TTL_SECONDS:300}
+    sandbox:
+      memory-limit-mb: ${APP_SANDBOX_MEMORY_LIMIT_MB:256}
+      jvm-xms: ${APP_SANDBOX_JVM_XMS:128m}
+      jvm-xmx: ${APP_SANDBOX_JVM_XMX:256m}
+
+  redis:
+    status-ttl-seconds: ${APP_REDIS_STATUS_TTL_SECONDS:600}
+    rate-limit:
+      requests-per-minute: ${APP_REDIS_RATE_LIMIT_RPM:5}
+
+  cache:
+    testcase-ttl-minutes: ${APP_CACHE_TESTCASE_TTL_MINUTES:60}
+
+  docker:
+    host: ${DOCKER_HOST:tcp://localhost:2375}
+    sandbox-image: ${SANDBOX_IMAGE:codeval/sandbox-wrapper:latest}
+    sandbox-host: ${SANDBOX_HOST:localhost}
 
 spring:
-  application:
-    name: executionEngine-service
-  
-  # ===============================
-  # Database Configuration (PostgreSQL) (SRS §12)
-  # ===============================
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:codeval}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:password}
+    username: ${DB_USER:codeval}
+    password: ${DB_PASS:codeval}
     driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
 
-  # ===============================
-  # JPA/Hibernate Configuration (SRS §5.2, §12)
-  # ===============================
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: none
-    show-sql: false
-    open-in-view: false
+      ddl-auto: ${SPRING_JPA_DDL_AUTO:update}
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        # Batch insert configuration (SRS §5.2, batch_size: 50)
         jdbc:
-          batch_size: 50
-          fetch_size: 50
-          batch_versioned_data: true
+          batch_size: ${HIBERNATE_BATCH_SIZE:50}
         order_inserts: true
         order_updates: true
-        format_sql: false
-        use_sql_comments: false
-        # Connection pooling
-        generate_statistics: false
+        batch_versioned_data: true
 
-  # ===============================
-  # Redis Configuration (SRS §8, §12)
-  # ===============================
-  redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
-    timeout: 2000
-    lettuce:
-      pool:
-        max-active: 20
-        max-idle: 10
-        min-idle: 5
-        max-wait: -1ms
-      shutdown-timeout: 2000ms
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
-  # ===============================
-  # Kafka Configuration (SRS §4.1, §7.1, §12)
-  # ===============================
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all
-      retries: 3
-      properties:
-        enable.idempotence: true
-        linger.ms: 10
-        batch.size: 16384
-    consumer:
-      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-      group-id: ${KAFKA_CONSUMER_GROUP:execution-engine-group}
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: '*'
-      max-poll-records: 100
-      max-poll-interval-ms: 300000
-      session-timeout-ms: 30000
-      heartbeat-interval-ms: 10000
-      # Manual offset acknowledgment (SRS §5.2, §7.1)
-      enable-auto-commit: false
-      auto-offset-reset: earliest
-
-  # ===============================
-  # Jackson Configuration (ISO-8601 timestamps)
-  # ===============================
-  # ===============================
-  # Schema Initialization (replaces Flyway — SRS §5)
-  # schema.sql contains the full consolidated DDL (tables + indexes)
-  # ===============================
-  flyway:
-    enabled: false
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:schema.sql
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
 
   jackson:
     serialization:
       write-dates-as-timestamps: false
-      indent-output: false
-    deserialization:
-      fail-on-unknown-properties: false
-    default-property-inclusion: non_null
 
-  # ===============================
-  # Security: JWT Authentication (SRS §3.1, §12)
-  # ===============================
-  security:
-    user:
-      name: admin
-      password: admin
-
-# ===============================
-# Application Configuration (SRS §12)
-# ===============================
-app:
-  # JWT Configuration (SRS §3.1, §12)
-  jwt:
-    secret-key: ${JWT_SECRET:dev-secret-key-do-not-use-in-production}
-    
-  # Kafka Configuration (SRS §4.1, §7.1, §12)
-  kafka:
-    topic: execution-tasks
-    partitions: 50
-    concurrency: 25                           # Pool A thread count (SRS §4.1)
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    
-  # Execution Orchestration Configuration (SRS §4.1, §12)
-  execution:
-    orchestration-threads: 50                 # Pool B thread count (SRS §4.1)
-    orchestration-queue-capacity: 1000
-    timeout-ms: 3000                          # Hard timeout per submission (SRS §4.1)
-    pool:
-      warm-min-size: 5                        # Pre-warmed containers (SRS §4.3)
-      max-size: 100                           # Max containers (SRS §4.3)
-      idle-ttl-seconds: 300                   # Container recycle threshold (SRS §4.3)
-      sweep-interval-ms: 30000               # Idle TTL sweep interval (SRS §12, EPMICMPCOD-531)
-    sandbox:
-      memory-limit-mb: 256                    # Docker cgroup limit
-      jvm-xms: 128m                           # JVM initial heap
-      jvm-xmx: 256m                           # JVM max heap
-      base-port: ${SANDBOX_BASE_PORT:10000}   # Base host port; each pool container gets base-port+N (SRS §12)
-  
-  # Redis Configuration (SRS §8, §12)
-  redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    status-ttl-seconds: 600                   # execution:status key TTL (10 mins)
-    rate-limit:
-      requests-per-minute: 5                  # Global rate limit (SRS §3.3, §12)
-  
-  # Caffeine Cache Configuration (SRS §4.2, §12)
-  cache:
-    testcase-ttl-minutes: 60                  # Caffeine TTL for test cases
-    testcase-max-size: 10000                  # Caffeine max size
-
-# ===============================
-# Logging Configuration
-# ===============================
-logging:
-  level:
-    root: INFO
-    com.epam.execution_engine_service: DEBUG
-  pattern:
-    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-
-# ===============================
-# Actuator/Health Endpoints (SRS §3.2)
-# ===============================
 management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus,metrics
-      base-path: /actuator
+        include: health,info,metrics
   endpoint:
     health:
       show-details: always
-  metrics:
-    export:
-      prometheus:
-        enabled: true
 
-# ===============================
+logging:
+  level:
+    org.codeval: ${LOG_LEVEL_APP:DEBUG}
+    org.springframework.kafka: ${LOG_LEVEL_KAFKA:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:INFO}

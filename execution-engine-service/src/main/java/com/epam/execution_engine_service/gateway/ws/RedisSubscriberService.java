@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.codeval.execution.domain.ExecutionResultEvent;
+import com.epam.execution_engine_service.domain.ExecutionResultEvent;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.data.redis.listener.ChannelTopic;
@@ -46,5 +46,6 @@ public class RedisSubscriberService implements MessageListener {
         }
     }
 }
+
 
 

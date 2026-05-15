@@ -1,7 +1,6 @@
 package com.epam.execution_engine_service.service;
 
 import com.epam.execution_engine_service.exception.ContainerAcquisitionException;
-import com.epam.execution_engine_service.orchestrator.ContainerSpawner;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;

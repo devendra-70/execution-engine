@@ -1,7 +1,6 @@
 package com.epam.execution_engine_service.service;
 
 import com.epam.execution_engine_service.exception.ContainerAcquisitionException;
-import com.epam.execution_engine_service.orchestrator.ContainerSpawner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

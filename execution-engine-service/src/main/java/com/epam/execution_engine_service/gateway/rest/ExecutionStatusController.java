@@ -1,7 +1,7 @@
-package org.codeval.execution.gateway.rest;
+package com.epam.execution_engine_service.gateway.rest;
 
 import lombok.RequiredArgsConstructor;
-import org.codeval.execution.domain.ExecutionStatus;
+import com.epam.execution_engine_service.domain.ExecutionStatus;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

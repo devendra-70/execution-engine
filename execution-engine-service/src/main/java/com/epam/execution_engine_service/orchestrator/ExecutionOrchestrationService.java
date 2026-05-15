@@ -8,7 +8,7 @@ import com.epam.execution_engine_service.orchestrator.cache.TestCaseCacheService
 import com.epam.execution_engine_service.orchestrator.docker.DockerContainerPool;
 import com.epam.execution_engine_service.orchestrator.docker.SandboxContainer;
 //fix this when persistence works
-import org.codeval.execution.persistence.service.PersistenceService;
+import com.epam.execution_engine_service.persistence.service.PersistenceService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;

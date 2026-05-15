@@ -2,7 +2,7 @@ package com.epam.execution_engine_service.gateway.ws;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.codeval.execution.gateway.security.JwtTokenValidator;
+import com.epam.execution_engine_service.gateway.security.JwtTokenValidator;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;

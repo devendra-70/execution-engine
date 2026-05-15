@@ -1,9 +1,9 @@
-package org.codeval.execution.gateway.rest;
+package com.epam.execution_engine_service.gateway.rest;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
-import org.codeval.execution.gateway.security.JwtProperties;
+import com.epam.execution_engine_service.gateway.security.JwtProperties;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

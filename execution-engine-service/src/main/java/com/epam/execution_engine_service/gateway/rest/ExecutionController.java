@@ -1,12 +1,12 @@
-package org.codeval.execution.gateway.rest;
+package com.epam.execution_engine_service.gateway.rest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.codeval.execution.domain.ExecutionRequest;
-import org.codeval.execution.domain.ExecutionStatus;
-import org.codeval.execution.domain.ExecutionTaskEvent;
-import org.codeval.execution.gateway.security.JwtTokenValidator;
+import com.epam.execution_engine_service.domain.ExecutionRequest;
+import com.epam.execution_engine_service.domain.ExecutionStatus;
+import com.epam.execution_engine_service.domain.ExecutionTaskEvent;
+import com.epam.execution_engine_service.gateway.security.JwtTokenValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;

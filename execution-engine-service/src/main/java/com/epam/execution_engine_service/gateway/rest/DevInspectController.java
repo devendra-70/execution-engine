@@ -1,9 +1,9 @@
-package org.codeval.execution.gateway.rest;
+package com.epam.execution_engine_service.gateway.rest;
 
 import lombok.RequiredArgsConstructor;
-import org.codeval.execution.persistence.entity.SubmissionEntity;
-import org.codeval.execution.persistence.entity.SubmissionTestResultEntity;
-import org.codeval.execution.persistence.repository.SubmissionRepository;
+import com.epam.execution_engine_service.persistence.entity.SubmissionEntity;
+import com.epam.execution_engine_service.persistence.entity.SubmissionTestResultEntity;
+import com.epam.execution_engine_service.persistence.repository.SubmissionRepository;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;

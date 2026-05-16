@@ -1,4 +1,4 @@
-package org.codeval.execution.util;
+package com.epam.execution_engine_service.util;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;

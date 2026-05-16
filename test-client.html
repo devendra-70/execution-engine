@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CodEval — Dev Test Client</title>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: monospace; margin: 0; background: #1e1e1e; color: #d4d4d4; font-size: 13px; }
+  h1 { background: #252526; color: #569cd6; margin: 0; padding: 12px 20px; font-size: 16px;
+       border-bottom: 1px solid #3c3c3c; display:flex; align-items:center; gap:10px; }
+  .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 0; height: calc(100vh - 47px); }
+  .panel { border-right: 1px solid #3c3c3c; display: flex; flex-direction: column; overflow: hidden; }
+  .panel:last-child { border-right: none; }
+  .panel-title { background: #2d2d2d; padding: 8px 14px; color: #9cdcfe; font-weight: bold;
+                 border-bottom: 1px solid #3c3c3c; font-size: 12px; display:flex; align-items:center; gap:8px; }
+  .panel-body { padding: 12px 14px; overflow-y: auto; flex: 1; }
+
+  /* ── Controls ── */
+  label { color: #9cdcfe; display:block; margin: 6px 0 2px; }
+  input, textarea, select {
+    width: 100%; background: #3c3c3c; color: #d4d4d4;
+    border: 1px solid #555; padding: 5px 8px; border-radius: 3px; font-family: monospace; font-size: 12px;
+  }
+  input:focus, textarea:focus { outline: 1px solid #569cd6; }
+  .row { display:flex; gap:8px; align-items:flex-end; margin-bottom:8px; }
+  .row label { margin:0; white-space:nowrap; }
+  .row input { flex:1; }
+
+  /* ── Buttons ── */
+  button { border: none; padding: 7px 14px; cursor: pointer; border-radius: 3px;
+           font-family: monospace; font-size: 12px; color: #fff; transition: opacity .15s; }
+  button:hover { opacity: .85; }
+  .btn-blue   { background: #0e639c; }
+  .btn-red    { background: #c72e2e; }
+  .btn-purple { background: #7b4f9e; }
+  .btn-green  { background: #16825d; }
+  .btn-gray   { background: #555; }
+  .btn-teal   { background: #1a7070; }
+  .btn-orange { background: #8a4f10; }
+  .btn-group  { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+
+  /* ── Mode tabs ── */
+  .mode-tabs { display:flex; gap:0; margin-bottom:10px; }
+  .mode-tab  { flex:1; padding:6px; text-align:center; cursor:pointer; background:#3c3c3c;
+               border:1px solid #555; font-size:12px; color:#aaa; }
+  .mode-tab.active { background:#0e639c; color:#fff; border-color:#0e639c; }
+  .mode-tab:first-child { border-radius:3px 0 0 3px; }
+  .mode-tab:last-child  { border-radius:0 3px 3px 0; }
+
+  /* ── Status badge ── */
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:#c72e2e; }
+  .dot.on { background:#4ec9b0; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px;
+           background:#3c3c3c; color:#aaa; }
+  .badge.PENDING  { background:#5a4a00; color:#ffd700; }
+  .badge.RUNNING  { background:#003d5a; color:#7dd3fc; }
+  .badge.ACCEPTED { background:#1a472a; color:#4ec9b0; }
+  .badge.WRONG_ANSWER { background:#5a1a1a; color:#f87171; }
+  .badge.COMPILE_ERROR { background:#5a2a00; color:#fb923c; }
+  .badge.RUNTIME_ERROR { background:#3a1a5a; color:#c084fc; }
+  .badge.TIME_LIMIT_EXCEEDED { background:#3a3a00; color:#facc15; }
+
+  /* ── Log ── */
+  .log { background:#0d0d0d; padding:10px; border-radius:4px; height:200px; overflow-y:auto;
+         border:1px solid #3c3c3c; font-size:11px; white-space:pre-wrap; }
+  .log.tall { height:280px; }
+  .ok   { color:#4ec9b0; } .err  { color:#f48771; }
+  .info { color:#dcdcaa; } .recv { color:#c8b3f5; }
+  .dim  { color:#666; }
+
+  /* ── Inspect table ── */
+  .kv-table { width:100%; border-collapse:collapse; font-size:11px; margin-top:6px; }
+  .kv-table th { background:#2a2a2a; color:#9cdcfe; padding:4px 8px; text-align:left; border-bottom:1px solid #444; }
+  .kv-table td { padding:4px 8px; border-bottom:1px solid #333; vertical-align:top; word-break:break-all; }
+  .kv-table tr:hover td { background:#252526; }
+
+  /* ── Divider ── */
+  hr { border:none; border-top:1px solid #3c3c3c; margin:10px 0; }
+  .section-label { color:#666; font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin:10px 0 4px; }
+</style>
+</head>
+<body>
+
+<h1>
+  <span>&#9881;</span> CodEval Dev Test Client
+  <span style="margin-left:auto;font-size:11px;color:#666;">
+    <span class="dot" id="wsDot"></span> <span id="wsText">WS Disconnected</span>
+    &nbsp;|&nbsp; Engine: <a href="http://localhost:8080/actuator/health" target="_blank" style="color:#569cd6">:8080</a>
+    &nbsp;|&nbsp; Kafka UI: <a href="http://localhost:8090" target="_blank" style="color:#569cd6">:8090</a>
+  </span>
+</h1>
+
+<div class="layout">
+
+  <!-- ══════════════════ LEFT: SUBMIT PANEL ══════════════════ -->
+  <div class="panel">
+    <div class="panel-title">&#9654; Code Submission</div>
+    <div class="panel-body">
+
+      <div class="row">
+        <label style="color:#666">Base URL</label>
+        <input id="baseUrl" value="http://localhost:8080" style="max-width:220px">
+      </div>
+
+      <div class="row">
+        <label>JWT Token</label>
+        <input id="token" placeholder="click Get Fresh Token &#8594;">
+        <button class="btn-purple" onclick="fetchFreshToken()">Get Fresh Token</button>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-blue"  onclick="connectWS()">Connect WS</button>
+        <button class="btn-red"   onclick="disconnectWS()">Disconnect</button>
+      </div>
+
+      <hr>
+
+      <div class="section-label">Execution Mode</div>
+      <div class="mode-tabs">
+        <div class="mode-tab active" id="tab-run"    onclick="setMode('run')">&#9654; Run (quick test)</div>
+        <div class="mode-tab"        id="tab-submit" onclick="setMode('submit')">&#10003; Submit (all test cases)</div>
+      </div>
+
+      <div id="run-hint"    style="color:#666;font-size:11px;margin-bottom:6px;">Runs code against sample input only. Fast, no DB record.</div>
+      <div id="submit-hint" style="color:#666;font-size:11px;margin-bottom:6px;display:none;">Runs all test cases. Saves verdict + test results to PostgreSQL.</div>
+
+      <div class="row">
+        <label>Problem ID</label>
+        <input id="problemId" value="1" style="max-width:80px">
+      </div>
+
+      <label>Source Code <span style="color:#666">(class must be named Solution)</span></label>
+      <textarea id="sourceCode" rows="9">public class Solution {
+    public static void main(String[] args) {
+        System.out.println("Hello World");
+    }
+}</textarea>
+
+      <div class="btn-group" style="margin-top:8px;">
+        <button class="btn-green"  onclick="submitCode()">&#9654; Execute</button>
+        <button class="btn-teal"   id="restPollBtn" onclick="toggleRestPoll()" title="Poll Redis KV via REST until final verdict">&#9654; REST Poll</button>
+        <button class="btn-gray"   onclick="clearSubmitLog()">Clear Log</button>
+      </div>
+      <div id="restPollStatus" style="font-size:11px;color:#666;margin-top:2px;display:none;">
+        &#9679; REST polling… <span id="restPollCount">0</span> checks
+      </div>
+
+      <div class="section-label">Last Execution ID</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+        <code id="lastExecId" style="color:#4ec9b0;flex:1;">—</code>
+        <span id="lastVerdict" class="badge">—</span>
+      </div>
+
+      <div class="log" id="submitLog"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ RIGHT: INSPECT PANEL ══════════════════ -->
+  <div class="panel">
+    <div class="panel-title">&#128269; Inspect — Redis &amp; PostgreSQL</div>
+    <div class="panel-body">
+
+      <!-- Redis section -->
+      <div class="section-label">Redis KV — Execution Status</div>
+      <div class="row">
+        <input id="redisExecId" placeholder="paste executionId or auto-filled on submit">
+        <button class="btn-teal"  onclick="inspectRedis()">Check Redis</button>
+        <button class="btn-green" id="pollBtn" onclick="togglePoll()" title="Poll Redis every second until final verdict">&#9654; Poll</button>
+        <button class="btn-gray"  onclick="resetRedisTbody()">&#8635; Reset</button>
+      </div>
+      <div id="pollStatus" style="font-size:11px;color:#666;margin-bottom:4px;display:none;">
+        &#9679; Polling every 1s… <span id="pollCount">0</span> checks
+      </div>
+      <table class="kv-table" id="redisTable">
+        <thead><tr><th>Key</th><th>Value</th><th>TTL (s)</th></tr></thead>
+        <tbody id="redisTbody"><tr><td colspan="3" class="dim">— not checked yet —</td></tr></tbody>
+      </table>
+
+      <hr>
+
+      <div class="section-label">Redis KV — Rate Limit (userId)</div>
+      <div class="row">
+        <input id="redisUserId" value="1" style="max-width:80px">
+        <button class="btn-teal" onclick="inspectRateLimit()">Check Rate Key</button>
+      </div>
+      <table class="kv-table">
+        <thead><tr><th>Key</th><th>Value</th><th>TTL (s)</th></tr></thead>
+        <tbody id="rateTbody"><tr><td colspan="3" class="dim">— not checked yet —</td></tr></tbody>
+      </table>
+
+      <hr>
+
+      <!-- DB section -->
+      <div class="section-label">PostgreSQL — Submission Record</div>
+      <div class="row">
+        <input id="dbExecId" placeholder="paste executionId or auto-filled on submit">
+        <button class="btn-orange" onclick="inspectDB()">Check DB</button>
+      </div>
+      <div id="dbSummary" style="margin:4px 0;"></div>
+      <table class="kv-table" id="dbTestTable" style="display:none;">
+        <thead><tr><th>#</th><th>Verdict</th><th>Runtime</th><th>Memory</th><th>Actual Output</th><th>Error</th></tr></thead>
+        <tbody id="dbTestTbody"></tbody>
+      </table>
+
+      <hr>
+
+      <div class="section-label">PostgreSQL — Recent Submissions</div>
+      <div class="btn-group">
+        <button class="btn-orange" onclick="loadRecent()">Load Recent 10</button>
+        <button class="btn-gray"   onclick="clearInspectLog()">Clear Log</button>
+      </div>
+      <table class="kv-table" id="recentTable" style="display:none;">
+        <thead><tr><th>ExecutionId</th><th>Mode</th><th>Verdict</th><th>Score</th><th>Runtime</th><th>Tests</th></tr></thead>
+        <tbody id="recentTbody"></tbody>
+      </table>
+
+      <div class="log" id="inspectLog" style="height:100px;margin-top:8px;"></div>
+    </div>
+  </div>
+
+</div><!-- /layout -->
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────
+let stompClient = null;
+let currentMode = 'run';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+function getBase()  { return document.getElementById('baseUrl').value.trim(); }
+function getToken() { return document.getElementById('token').value.trim(); }
+
+function slog(msg, cls) {
+  const d = document.getElementById('submitLog');
+  const ts = new Date().toLocaleTimeString();
+  d.innerHTML += '<span class="' + (cls||'') + '">[' + ts + '] ' + escHtml(msg) + '</span>\n';
+  d.scrollTop = d.scrollHeight;
+}
+function ilog(msg, cls) {
+  const d = document.getElementById('inspectLog');
+  const ts = new Date().toLocaleTimeString();
+  d.innerHTML += '<span class="' + (cls||'') + '">[' + ts + '] ' + escHtml(msg) + '</span>\n';
+  d.scrollTop = d.scrollHeight;
+}
+function clearSubmitLog()  { document.getElementById('submitLog').innerHTML = ''; }
+function clearInspectLog() { document.getElementById('inspectLog').innerHTML = ''; }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ─── Mode tabs ─────────────────────────────────────────────────────────────
+function setMode(m) {
+  currentMode = m;
+  document.getElementById('tab-run').className    = 'mode-tab' + (m==='run'?    ' active':'');
+  document.getElementById('tab-submit').className = 'mode-tab' + (m==='submit'? ' active':'');
+  document.getElementById('run-hint').style.display    = m==='run'?    'block':'none';
+  document.getElementById('submit-hint').style.display = m==='submit'? 'block':'none';
+}
+
+// ─── Token ─────────────────────────────────────────────────────────────────
+async function fetchFreshToken() {
+  try {
+    slog('Fetching fresh token...', 'info');
+    const res  = await fetch(getBase() + '/api/dev/token');
+    const data = await res.json();
+    document.getElementById('token').value = data.token;
+    slog('Token OK — expires in ' + data.expiresIn, 'ok');
+  } catch(e) { slog('Token fetch failed: ' + e, 'err'); }
+}
+
+// ─── WebSocket ─────────────────────────────────────────────────────────────
+function connectWS() {
+  const token = getToken();
+  if (!token) { slog('Get a token first', 'err'); return; }
+
+  const url = getBase() + '/ws?token=' + encodeURIComponent(token);
+  slog('Connecting WS to ' + url + ' ...', 'info');
+  const socket = new SockJS(url);
+  stompClient = Stomp.over(socket);
+  stompClient.debug = null;
+
+  stompClient.connect(
+    { Authorization: 'Bearer ' + token },
+    function(frame) {
+      setWS(true);
+      slog('WS Connected', 'ok');
+      stompClient.subscribe('/user/queue/execution-results', function(msg) {
+        const r = JSON.parse(msg.body);
+        slog('WS RESULT: ' + JSON.stringify(r, null, 2), 'recv');
+        if (r.verdict) setVerdict(r.verdict);
+        // auto-refresh inspect panels
+        const eid = document.getElementById('lastExecId').textContent;
+        if (eid && eid !== '—') {
+          document.getElementById('dbExecId').value = eid;
+          setTimeout(inspectDB, 400);
+        }
+      });
+      slog('Subscribed to /user/queue/execution-results', 'ok');
+    },
+    function(err) {
+      setWS(false);
+      slog('WS error: ' + err, 'err');
+    }
+  );
+}
+
+function disconnectWS() {
+  if (stompClient) { stompClient.disconnect(); stompClient = null; }
+  setWS(false);
+  slog('WS disconnected', 'info');
+}
+
+function setWS(on) {
+  document.getElementById('wsDot').className  = 'dot' + (on?' on':'');
+  document.getElementById('wsText').textContent = on ? 'WS Connected' : 'WS Disconnected';
+}
+
+function setVerdict(v) {
+  const el = document.getElementById('lastVerdict');
+  el.textContent = v;
+  el.className = 'badge ' + (v || '');
+}
+
+// ─── Submit ─────────────────────────────────────────────────────────────────
+async function submitCode() {
+  const token = getToken();
+  if (!token) { slog('Get a token first', 'err'); return; }
+
+  const body = {
+    problemId: parseInt(document.getElementById('problemId').value),
+    language: 'java',
+    mode: currentMode,
+    sourceCode: document.getElementById('sourceCode').value
+  };
+
+  slog('POST /api/executions  [mode=' + currentMode + ']', 'info');
+  try {
+    const res  = await fetch(getBase() + '/api/executions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    slog('HTTP ' + res.status + ': ' + JSON.stringify(data), res.ok ? 'ok' : 'err');
+
+    if (data.executionId) {
+      const eid = data.executionId;
+      document.getElementById('lastExecId').textContent = eid;
+      document.getElementById('redisExecId').value = eid;
+      document.getElementById('dbExecId').value    = eid;
+      setVerdict('PENDING');
+      slog('executionId = ' + eid, 'ok');
+
+      // auto-check Redis immediately and start polling
+      inspectRedis();
+      startPoll();
+    }
+  } catch(e) { slog('Request failed: ' + e, 'err'); }
+}
+
+// ─── REST Poll (left panel) ───────────────────────────────────────────────
+let restPollTimer = null;
+let restPollChecks = 0;
+
+function toggleRestPoll() {
+  if (restPollTimer) { stopRestPoll(); } else { startRestPoll(); }
+}
+
+function startRestPoll() {
+  const eid = document.getElementById('lastExecId').textContent.trim();
+  if (!eid || eid === '—') { slog('Execute first to get an executionId', 'err'); return; }
+  restPollChecks = 0;
+  document.getElementById('restPollBtn').textContent = '■ Stop';
+  document.getElementById('restPollBtn').className   = 'btn-red';
+  document.getElementById('restPollStatus').style.display = 'block';
+  slog('REST polling Redis for ' + eid, 'info');
+  restPollTimer = setInterval(async () => {
+    restPollChecks++;
+    document.getElementById('restPollCount').textContent = restPollChecks;
+    try {
+      const res  = await fetch(getBase() + '/api/dev/inspect/redis/' + eid);
+      const data = await res.json();
+      slog('[REST Poll #' + restPollChecks + '] Redis → ' + data.value + '  TTL=' + data.ttlSeconds + 's', 'info');
+      // keep right panel table in sync
+      document.getElementById('redisExecId').value = eid;
+      const tbody = document.getElementById('redisTbody');
+      const ttlColor = data.ttlSeconds < 60 ? 'color:#f87171' : 'color:#4ec9b0';
+      tbody.innerHTML = '<tr><td>' + escHtml(data.key) + '</td>' +
+        '<td><span class="badge ' + escHtml(data.value) + '">' + escHtml(data.value) + '</span></td>' +
+        '<td style="' + ttlColor + '">' + data.ttlSeconds + 's</td></tr>';
+      if (data.value && data.value !== '—') setVerdict(data.value);
+      if (FINAL_VERDICTS.has(data.value)) {
+        slog('Final verdict: ' + data.value + ' — REST poll stopped', 'ok');
+        stopRestPoll();
+      }
+    } catch(e) { slog('REST poll error: ' + e, 'err'); }
+    if (restPollChecks >= 60) stopRestPoll();
+  }, 1000);
+}
+
+function stopRestPoll() {
+  if (restPollTimer) { clearInterval(restPollTimer); restPollTimer = null; }
+  document.getElementById('restPollBtn').textContent = '▶ REST Poll';
+  document.getElementById('restPollBtn').className   = 'btn-teal';
+  document.getElementById('restPollStatus').style.display = 'none';
+}
+
+// ─── Inspect: Redis ─────────────────────────────────────────────────────────
+const FINAL_VERDICTS = new Set(['ACCEPTED','WRONG_ANSWER','COMPILE_ERROR','RUNTIME_ERROR','TIME_LIMIT_EXCEEDED','MEMORY_LIMIT_EXCEEDED']);
+let pollTimer = null;
+let pollChecks = 0;
+
+function resetRedisTbody() {
+  document.getElementById('redisTbody').innerHTML =
+    '<tr><td colspan="3" class="dim">— cleared —</td></tr>';
+}
+
+function togglePoll() {
+  if (pollTimer) {
+    stopPoll();
+  } else {
+    startPoll();
+  }
+}
+
+function startPoll() {
+  const eid = document.getElementById('redisExecId').value.trim();
+  if (!eid) { ilog('Enter an executionId before polling', 'err'); return; }
+  pollChecks = 0;
+  document.getElementById('pollBtn').textContent = '■ Stop Poll';
+  document.getElementById('pollBtn').className   = 'btn-red';
+  document.getElementById('pollStatus').style.display = 'block';
+  ilog('Started Redis polling for ' + eid, 'info');
+  pollTimer = setInterval(async () => {
+    pollChecks++;
+    document.getElementById('pollCount').textContent = pollChecks;
+    await inspectRedis();
+    // read last rendered value from the badge
+    const badge = document.querySelector('#redisTbody .badge');
+    if (badge && FINAL_VERDICTS.has(badge.textContent.trim())) {
+      ilog('Final verdict received: ' + badge.textContent.trim() + ' — stopping poll', 'ok');
+      stopPoll();
+    }
+    if (pollChecks >= 60) { // safety: stop after 60s
+      stopPoll();
+    }
+  }, 1000);
+}
+
+function stopPoll() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  document.getElementById('pollBtn').textContent = '▶ Poll';
+  document.getElementById('pollBtn').className   = 'btn-green';
+  document.getElementById('pollStatus').style.display = 'none';
+}
+
+async function inspectRedis() {
+  const eid = document.getElementById('redisExecId').value.trim();
+  if (!eid) { ilog('Enter an executionId first', 'err'); return; }
+  try {
+    const res  = await fetch(getBase() + '/api/dev/inspect/redis/' + eid);
+    const data = await res.json();
+    const tbody = document.getElementById('redisTbody');
+    const ttlColor = data.ttlSeconds < 60 ? 'color:#f87171' : 'color:#4ec9b0';
+    tbody.innerHTML =
+      '<tr>' +
+        '<td>' + escHtml(data.key) + '</td>' +
+        '<td><span class="badge ' + escHtml(data.value) + '">' + escHtml(data.value) + '</span></td>' +
+        '<td style="' + ttlColor + '">' + data.ttlSeconds + 's</td>' +
+      '</tr>';
+    if (data.value !== '—') setVerdict(data.value);
+  } catch(e) { ilog('Redis check failed: ' + e, 'err'); }
+}
+
+async function inspectRateLimit() {
+  const uid = document.getElementById('redisUserId').value.trim() || '1';
+  try {
+    const res  = await fetch(getBase() + '/api/dev/inspect/redis/rate/' + uid);
+    const data = await res.json();
+    const tbody = document.getElementById('rateTbody');
+    if (!data.keys || data.keys.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="dim">No rate-limit keys found for userId=' + escHtml(uid) + '</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.keys.map(k =>
+      '<tr><td>' + escHtml(k.key) + '</td><td>' + escHtml(k.value) + '</td><td>' + k.ttlSeconds + 's</td></tr>'
+    ).join('');
+  } catch(e) { ilog('Rate-limit check failed: ' + e, 'err'); }
+}
+
+// ─── Inspect: DB ─────────────────────────────────────────────────────────────
+async function inspectDB() {
+  const eid = document.getElementById('dbExecId').value.trim();
+  if (!eid) { ilog('Enter an executionId first', 'err'); return; }
+  try {
+    const res  = await fetch(getBase() + '/api/dev/inspect/db/' + eid);
+    const data = await res.json();
+    const summary = document.getElementById('dbSummary');
+    const testTable = document.getElementById('dbTestTable');
+    const testTbody = document.getElementById('dbTestTbody');
+
+    if (!data.found) {
+      summary.innerHTML = '<span style="color:#f87171">' + escHtml(data.message) + '</span>';
+      testTable.style.display = 'none';
+      return;
+    }
+
+    summary.innerHTML =
+      '<table class="kv-table"><tbody>' +
+      row('Verdict',     '<span class="badge ' + data.verdict + '">' + data.verdict + '</span>') +
+      row('Score',       data.score) +
+      row('Runtime',     data.totalRuntimeMs + ' ms') +
+      row('Memory',      data.memoryBytes + ' bytes') +
+      row('Mode',        data.mode) +
+      row('Language',    data.language) +
+      row('Problem',     '#' + data.problemId + (data.problemName ? ' — ' + data.problemName : '')) +
+      row('Submitted',   data.submittedAt) +
+      row('Completed',   data.completedAt || '—') +
+      row('Test Cases',  data.testResultCount) +
+      '</tbody></table>';
+
+    if (data.testResults && data.testResults.length > 0) {
+      testTable.style.display = 'table';
+      testTbody.innerHTML = data.testResults.map((r, i) =>
+        '<tr>' +
+          '<td>' + (i+1) + '</td>' +
+          '<td><span class="badge ' + r.verdict + '">' + escHtml(r.verdict||'—') + '</span></td>' +
+          '<td>' + r.runtimeMs + 'ms</td>' +
+          '<td>' + r.memoryBytes + 'b</td>' +
+          '<td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">' + escHtml(r.actualOutput||'') + '</td>' +
+          '<td style="color:#f87171">' + escHtml(r.errorMessage||'') + '</td>' +
+        '</tr>'
+      ).join('');
+    } else {
+      testTable.style.display = 'none';
+    }
+
+    if (data.verdict) setVerdict(data.verdict);
+  } catch(e) { ilog('DB check failed: ' + e, 'err'); }
+}
+
+function row(label, val) {
+  return '<tr><td style="color:#9cdcfe;white-space:nowrap">' + label + '</td><td>' + val + '</td></tr>';
+}
+
+// ─── Recent Submissions ───────────────────────────────────────────────────
+async function loadRecent() {
+  try {
+    ilog('Loading recent submissions...', 'info');
+    const res  = await fetch(getBase() + '/api/dev/inspect/db/recent?limit=10');
+    const data = await res.json();
+    const table = document.getElementById('recentTable');
+    const tbody = document.getElementById('recentTbody');
+    table.style.display = 'table';
+
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="dim">No submissions in DB yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(s =>
+      '<tr style="cursor:pointer" onclick="loadSubmission(\'' + s.executionId + '\')">' +
+        '<td style="font-size:10px;color:#888">' + String(s.executionId).substring(0,8) + '...</td>' +
+        '<td>' + escHtml(s.mode) + '</td>' +
+        '<td><span class="badge ' + s.verdict + '">' + escHtml(s.verdict||'—') + '</span></td>' +
+        '<td>' + s.score + '</td>' +
+        '<td>' + s.totalRuntimeMs + 'ms</td>' +
+        '<td>' + s.testResultCount + '</td>' +
+      '</tr>'
+    ).join('');
+    ilog('Loaded ' + data.length + ' submissions', 'ok');
+  } catch(e) { ilog('Failed: ' + e, 'err'); }
+}
+
+function loadSubmission(eid) {
+  document.getElementById('dbExecId').value    = eid;
+  document.getElementById('redisExecId').value = eid;
+  inspectDB();
+  inspectRedis();
+}
+</script>
+</body>
+</html>
+

@@ -47,7 +47,6 @@ class SecurityConfigTest {
         assertThat(securityConfig).hasFieldOrPropertyWithValue("jwtAuthFilter", jwtAuthFilter);
         assertThat(securityConfig).hasFieldOrPropertyWithValue("rateLimitFilter", rateLimitFilter);
     }
-    }
 
     /**
      * Test CORS configuration bean creation.

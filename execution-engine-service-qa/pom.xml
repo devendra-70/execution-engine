@@ -1,59 +1,17 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.epam</groupId>
-        <artifactId>execution-engine-parent</artifactId>
+        <groupId>org.codeval</groupId>
+        <artifactId>execution-parent</artifactId>
         <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>executionEngine-qa</artifactId>
-    <name>executionEngine-qa</name>
-
-    <dependencies>
-
-        <!-- Depend on your service -->
-        <dependency>
-            <groupId>com.epam</groupId>
-            <artifactId>executionEngine-service</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-
-        <!-- Testing -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- Optional: API testing -->
-        <dependency>
-            <groupId>io.rest-assured</groupId>
-            <artifactId>rest-assured</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-    </dependencies>
-
-    <build>
-        <plugins>
-
-            <!-- Integration tests -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.2.5</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-        </plugins>
-    </build>
+    <artifactId>execution-engine-service-qa</artifactId>
+    <name>execution-engine-service-qa</name>
+    <description>CodEval Execution Engine - QA (placeholder)</description>
 
 </project>

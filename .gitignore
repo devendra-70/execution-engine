@@ -27,6 +27,7 @@ documents/SRS.md
 
 *.txt
 
+.env
 # OS
 .DS_Store
 Thumbs.db

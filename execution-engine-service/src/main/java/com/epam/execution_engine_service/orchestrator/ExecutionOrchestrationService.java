@@ -41,8 +41,12 @@ public class ExecutionOrchestrationService {
     public void orchestrate(ExecutionTaskEvent taskEvent) throws Exception {
         log.info("Orchestrating execution {} for problem {}", taskEvent.getExecutionId(), taskEvent.getProblemId());
 
-        // 1. Fetch test cases (Caffeine cache → DB on miss)
-        List<TestCase> testCases = testCaseCacheService.getTestCases(taskEvent.getProblemId());
+        // 1. Fetch test cases — run mode uses only visible (non-hidden) test cases;
+        //    submit mode uses all test cases (including hidden).
+        boolean isRunMode = "run".equalsIgnoreCase(taskEvent.getMode());
+        List<TestCase> testCases = isRunMode
+                ? testCaseCacheService.getVisibleTestCases(taskEvent.getProblemId())
+                : testCaseCacheService.getTestCases(taskEvent.getProblemId());
 
         if (testCases.isEmpty()) {
             log.warn("No test cases found for problemId {}", taskEvent.getProblemId());

@@ -32,6 +32,7 @@ public class SandboxContainer {
         this.containerId = containerId;
         this.sandboxHost = sandboxHost;
         this.sandboxPort = sandboxPort;
+        // Note: dockerClient parameter kept for API compatibility but not used in this class
     }
 
     /**

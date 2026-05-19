@@ -121,6 +121,9 @@
             <version>6.3.0</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>        </dependency>
     </dependencies>
 
     <build>
@@ -128,11 +131,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>com/epam/execution_engine_service/util/**</exclude>
-                    </excludes>
-                </configuration>
+                <version>0.8.12</version>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

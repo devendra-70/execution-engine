@@ -5,6 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -59,7 +61,6 @@ class SecurityHttpRulesTest {
         // Provide a 64-byte key so DevTokenController can sign real JWTs
         when(jwtProperties.getSecretKey())
                 .thenReturn("my-super-secret-unit-test-key-that-is-long-enough-for-hmac-256!!");
-        // RateLimitFilter calls opsForValue() before AnonymousAuthenticationFilter runs;
         // return a stub ValueOperations to prevent NullPointerException in the filter.
         @SuppressWarnings("unchecked")
         ValueOperations<String, String> valueOps = mock(ValueOperations.class);
@@ -95,35 +96,12 @@ class SecurityHttpRulesTest {
                     .andExpect(status().isOk());
         }
 
-        @Test
-        @DisplayName("GET /actuator/health is not blocked by security (returns non-401)")
-        void actuatorHealth_noAuth_notUnauthorized() throws Exception {
-            MvcResult result = mockMvc.perform(get("/actuator/health")).andReturn();
+        @ParameterizedTest(name = "GET {0} is not blocked by security (returns non-401)")
+        @ValueSource(strings = {"/actuator/health", "/actuator/info", "/ws/stomp", "/ws/info"})
+        @DisplayName("Permit-all endpoints are not blocked by security")
+        void permitAllEndpoints_noAuth_notUnauthorized(String endpoint) throws Exception {
+            MvcResult result = mockMvc.perform(get(endpoint)).andReturn();
             // Security lets the request through (permit-all); servlet may return 200 or 404
-            assertThat(result.getResponse().getStatus())
-                    .isNotEqualTo(HttpStatus.UNAUTHORIZED.value());
-        }
-
-        @Test
-        @DisplayName("GET /actuator/info is not blocked by security (returns non-401)")
-        void actuatorInfo_noAuth_notUnauthorized() throws Exception {
-            MvcResult result = mockMvc.perform(get("/actuator/info")).andReturn();
-            assertThat(result.getResponse().getStatus())
-                    .isNotEqualTo(HttpStatus.UNAUTHORIZED.value());
-        }
-
-        @Test
-        @DisplayName("GET /ws/stomp is not blocked by security (returns non-401)")
-        void wsEndpoint_noAuth_notUnauthorized() throws Exception {
-            MvcResult result = mockMvc.perform(get("/ws/stomp")).andReturn();
-            assertThat(result.getResponse().getStatus())
-                    .isNotEqualTo(HttpStatus.UNAUTHORIZED.value());
-        }
-
-        @Test
-        @DisplayName("GET /ws/info is not blocked by security (returns non-401)")
-        void wsInfoEndpoint_noAuth_notUnauthorized() throws Exception {
-            MvcResult result = mockMvc.perform(get("/ws/info")).andReturn();
             assertThat(result.getResponse().getStatus())
                     .isNotEqualTo(HttpStatus.UNAUTHORIZED.value());
         }

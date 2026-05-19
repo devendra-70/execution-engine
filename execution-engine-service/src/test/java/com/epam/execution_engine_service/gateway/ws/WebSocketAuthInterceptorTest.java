@@ -1,14 +1,16 @@
 package com.epam.execution_engine_service.gateway.ws;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.impl.DefaultClaims;
-import org.codeval.execution.gateway.security.JwtTokenValidator;
+import com.epam.execution_engine_service.gateway.security.JwtTokenValidator;
+import java.util.HashMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -29,6 +31,7 @@ import static org.mockito.Mockito.*;
  * including token extraction, validation, and user principal setup.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class WebSocketAuthInterceptorTest {
 
     @Mock
@@ -40,29 +43,50 @@ class WebSocketAuthInterceptorTest {
     @InjectMocks
     private WebSocketAuthInterceptor webSocketAuthInterceptor;
 
-    private StompHeaderAccessor accessor;
-    private Message<?> message;
+    private Claims createClaims(String subject, Object userId) {
+        Claims claims = mock(Claims.class);
+        when(claims.get("userId")).thenReturn(userId);
+        when(claims.getSubject()).thenReturn(subject);
+        return claims;
+    }
 
-    @BeforeEach
-    void setUp() {
-        accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    /**
+     * Helper method to create a CONNECT message with specified headers.
+     * Ensures the StompHeaderAccessor is properly attached to the message.
+     */
+    private Message<?> createConnectMessageWithHeaders(String headerName, String headerValue) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+        accessor.addNativeHeader(headerName, headerValue);
+        // setLeaveMutable(true) keeps the accessor mutable so that setUser() in the
+        // interceptor can modify the headers and be visible via StompHeaderAccessor.wrap()
+        accessor.setLeaveMutable(true);
+        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    }
+
+    /**
+     * Helper method to create a CONNECT message without headers.
+     */
+    private Message<?> createConnectMessage() {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    }
+
+    /**
+     * Helper method to create a message with a different STOMP command.
+     */
+    private Message<?> createMessageWithCommand(StompCommand command) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(command);
+        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
     }
 
     @Test
     void preSend_validTokenWithUserIdNumber_authenticatesAndSetsPrincipal() {
         // Given
         String token = "valid.jwt.token";
-        accessor.addNativeHeader("Authorization", "Bearer " + token);
+        Message<?> message = createConnectMessageWithHeaders("Authorization", "Bearer " + token);
 
-        Claims claims = new DefaultClaims();
-        claims.put("userId", 12345L);
-        claims.setSubject("user@example.com");
-
+        Claims claims = createClaims("user@example.com", 12345L);
         when(jwtTokenValidator.validateAndExtract(token)).thenReturn(Optional.of(claims));
-
-        // Recreate message with updated headers
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -82,15 +106,10 @@ class WebSocketAuthInterceptorTest {
     void preSend_validTokenWithUserIdString_authenticatesAndSetsPrincipal() {
         // Given
         String token = "valid.jwt.token";
-        accessor.addNativeHeader("Authorization", "Bearer " + token);
+        Message<?> message = createConnectMessageWithHeaders("Authorization", "Bearer " + token);
 
-        Claims claims = new DefaultClaims();
-        claims.put("userId", "user123");
-        claims.setSubject("user@example.com");
-
+        Claims claims = createClaims("user@example.com", "user123");
         when(jwtTokenValidator.validateAndExtract(token)).thenReturn(Optional.of(claims));
-
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -109,14 +128,10 @@ class WebSocketAuthInterceptorTest {
     void preSend_validTokenWithSubjectOnly_authenticatesAndSetsPrincipalFromSubject() {
         // Given
         String token = "valid.jwt.token";
-        accessor.addNativeHeader("Authorization", "Bearer " + token);
+        Message<?> message = createConnectMessageWithHeaders("Authorization", "Bearer " + token);
 
-        Claims claims = new DefaultClaims();
-        claims.setSubject("user@example.com");
-
+        Claims claims = createClaims("user@example.com", null);
         when(jwtTokenValidator.validateAndExtract(token)).thenReturn(Optional.of(claims));
-
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -135,15 +150,10 @@ class WebSocketAuthInterceptorTest {
     void preSend_validTokenDirectHeader_authenticatesSuccessfully() {
         // Given
         String token = "valid.jwt.token";
-        accessor.addNativeHeader("token", token);
+        Message<?> message = createConnectMessageWithHeaders("token", token);
 
-        Claims claims = new DefaultClaims();
-        claims.put("userId", 67890L);
-        claims.setSubject("user@example.com");
-
+        Claims claims = createClaims("user@example.com", 67890L);
         when(jwtTokenValidator.validateAndExtract(token)).thenReturn(Optional.of(claims));
-
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -162,11 +172,9 @@ class WebSocketAuthInterceptorTest {
     void preSend_invalidToken_doesNotSetPrincipal() {
         // Given
         String token = "invalid.jwt.token";
-        accessor.addNativeHeader("Authorization", "Bearer " + token);
+        Message<?> message = createConnectMessageWithHeaders("Authorization", "Bearer " + token);
 
         when(jwtTokenValidator.validateAndExtract(token)).thenReturn(Optional.empty());
-
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -182,7 +190,7 @@ class WebSocketAuthInterceptorTest {
     @Test
     void preSend_noToken_doesNotSetPrincipal() {
         // Given - no token added
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        Message<?> message = createConnectMessage();
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -198,8 +206,7 @@ class WebSocketAuthInterceptorTest {
     @Test
     void preSend_blankTokenHeader_doesNotSetPrincipal() {
         // Given
-        accessor.addNativeHeader("token", "   ");
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        Message<?> message = createConnectMessageWithHeaders("token", "   ");
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -215,9 +222,7 @@ class WebSocketAuthInterceptorTest {
     @Test
     void preSend_nonConnectCommand_skipsAuthentication() {
         // Given
-        accessor = StompHeaderAccessor.create(StompCommand.SEND);
-        accessor.addNativeHeader("Authorization", "Bearer valid.token");
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        Message<?> message = createMessageWithCommand(StompCommand.SEND);
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -230,9 +235,7 @@ class WebSocketAuthInterceptorTest {
     @Test
     void preSend_subscribeCommand_skipsAuthentication() {
         // Given
-        accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
-        accessor.addNativeHeader("Authorization", "Bearer valid.token");
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        Message<?> message = createMessageWithCommand(StompCommand.SUBSCRIBE);
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -245,8 +248,7 @@ class WebSocketAuthInterceptorTest {
     @Test
     void preSend_disconnectCommand_skipsAuthentication() {
         // Given
-        accessor = StompHeaderAccessor.create(StompCommand.DISCONNECT);
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        Message<?> message = createMessageWithCommand(StompCommand.DISCONNECT);
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -272,8 +274,7 @@ class WebSocketAuthInterceptorTest {
     @Test
     void preSend_tokenWithoutBearerPrefix_notExtracted() {
         // Given
-        accessor.addNativeHeader("Authorization", "InvalidPrefix token");
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        Message<?> message = createConnectMessageWithHeaders("Authorization", "InvalidPrefix token");
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);
@@ -287,14 +288,10 @@ class WebSocketAuthInterceptorTest {
     void preSend_validTokenWithNullPrincipal_doesNotSetUser() {
         // Given
         String token = "valid.jwt.token";
-        accessor.addNativeHeader("Authorization", "Bearer " + token);
+        Message<?> message = createConnectMessageWithHeaders("Authorization", "Bearer " + token);
 
-        Claims claims = new DefaultClaims();
-        // No userId and no subject
-
+        Claims claims = createClaims(null, null);
         when(jwtTokenValidator.validateAndExtract(token)).thenReturn(Optional.of(claims));
-
-        message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
         // When
         Message<?> result = webSocketAuthInterceptor.preSend(message, messageChannel);

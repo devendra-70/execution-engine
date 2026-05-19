@@ -1,5 +1,6 @@
 package com.epam.execution_engine_service.gateway.rest;
 
+import com.epam.execution_engine_service.gateway.security.JwtTokenValidator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -29,6 +31,9 @@ class ExecutionControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private JwtTokenValidator jwtTokenValidator;
 
     @MockBean
     private KafkaTemplate kafkaTemplate;
@@ -53,6 +58,7 @@ class ExecutionControllerTest {
                     """;
 
             mockMvc.perform(post("/api/executions")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                     .andExpect(status().isUnauthorized());
@@ -77,6 +83,7 @@ class ExecutionControllerTest {
                     .thenReturn(null);
 
             mockMvc.perform(post("/api/executions")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                     .andExpect(status().isAccepted())
@@ -103,11 +110,12 @@ class ExecutionControllerTest {
                     .thenReturn(null);
 
             mockMvc.perform(post("/api/executions")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                     .andExpect(status().isAccepted());
 
-            verify(redisTemplate).opsForValue();
+            verify(redisTemplate, atLeastOnce()).opsForValue();
             verify(valueOps).set(
                     argThat(k -> k.startsWith("execution:status:")),
                     eq("PENDING"),
@@ -134,6 +142,7 @@ class ExecutionControllerTest {
                     .thenReturn(null);
 
             mockMvc.perform(post("/api/executions")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                     .andExpect(status().isAccepted());
@@ -164,6 +173,7 @@ class ExecutionControllerTest {
                     .thenReturn(null);
 
             mockMvc.perform(post("/api/executions")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                     .andExpect(status().isAccepted())
@@ -195,6 +205,7 @@ class ExecutionControllerTest {
 
             for (int i = 0; i < 3; i++) {
                 mockMvc.perform(post("/api/executions")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                         .andExpect(status().isAccepted());

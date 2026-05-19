@@ -30,6 +30,8 @@ documents/SRS.md
 
 *.txt
 
+META-INF/*
+
 .env
 # OS
 .DS_Store

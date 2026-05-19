@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,11 +12,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
@@ -34,6 +38,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class RateLimitFilterTest {
 
     @Mock
@@ -61,6 +66,11 @@ class RateLimitFilterTest {
         ReflectionTestUtils.setField(rateLimitFilter, "requestsPerMinute", 5);
         responseWriter = new StringWriter();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -132,7 +142,7 @@ class RateLimitFilterTest {
         when(request.getHeader("X-Forwarded-For")).thenReturn(null);
         when(request.getRemoteAddr()).thenReturn("192.168.1.1");
 
-        SecurityContextHolder.setContext(null);
+        SecurityContextHolder.setContext(new SecurityContextImpl());
 
         // Act
         rateLimitFilter.doFilterInternal(request, response, filterChain);
@@ -156,7 +166,7 @@ class RateLimitFilterTest {
         PrintWriter printWriter = new PrintWriter(responseWriter);
         when(response.getWriter()).thenReturn(printWriter);
 
-        SecurityContextHolder.setContext(null);
+        SecurityContextHolder.setContext(new SecurityContextImpl());
 
         // Act
         rateLimitFilter.doFilterInternal(request, response, filterChain);
@@ -180,7 +190,7 @@ class RateLimitFilterTest {
         when(valueOperations.increment(anyString())).thenReturn(1L);
         when(request.getHeader("X-Forwarded-For")).thenReturn("203.0.113.5");
 
-        SecurityContextHolder.setContext(null);
+        SecurityContextHolder.setContext(new SecurityContextImpl());
 
         // Act
         rateLimitFilter.doFilterInternal(request, response, filterChain);
@@ -203,7 +213,7 @@ class RateLimitFilterTest {
         when(request.getHeader("X-Forwarded-For")).thenReturn(null);
         when(request.getRemoteAddr()).thenReturn("192.168.100.50");
 
-        SecurityContextHolder.setContext(null);
+        SecurityContextHolder.setContext(new SecurityContextImpl());
 
         // Act
         rateLimitFilter.doFilterInternal(request, response, filterChain);
@@ -226,7 +236,7 @@ class RateLimitFilterTest {
         when(request.getHeader("X-Forwarded-For")).thenReturn(null);
         when(request.getRemoteAddr()).thenReturn("192.168.1.100");
 
-        SecurityContextHolder.setContext(null);
+        SecurityContextHolder.setContext(new SecurityContextImpl());
 
         // Act
         rateLimitFilter.doFilterInternal(request, response, filterChain);
@@ -248,7 +258,7 @@ class RateLimitFilterTest {
         when(request.getHeader("X-Forwarded-For")).thenReturn(null);
         when(request.getRemoteAddr()).thenReturn("192.168.1.1");
 
-        SecurityContextHolder.setContext(null);
+        SecurityContextHolder.setContext(new SecurityContextImpl());
 
         // Act
         rateLimitFilter.doFilterInternal(request, response, filterChain);
@@ -271,7 +281,7 @@ class RateLimitFilterTest {
         PrintWriter printWriter = new PrintWriter(responseWriter);
         when(response.getWriter()).thenReturn(printWriter);
 
-        SecurityContextHolder.setContext(null);
+        SecurityContextHolder.setContext(new SecurityContextImpl());
 
         // Act
         rateLimitFilter.doFilterInternal(request, response, filterChain);

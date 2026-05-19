@@ -150,7 +150,8 @@ class ExecutionOrchestrationServiceTest {
         when(containerPool.acquire(anyLong())).thenReturn(container);
         when(container.execute(anyString(), anyList(), anyLong())).thenThrow(new RuntimeException("socket error"));
 
-        assertThrows(RuntimeException.class, () -> orchestrationService.orchestrate(buildEvent()));
+        ExecutionTaskEvent event = buildEvent();
+        assertThrows(RuntimeException.class, () -> orchestrationService.orchestrate(event));
 
         verify(containerPool).release(container);
         verify(persistenceService, never()).saveSubmission(any(), any());

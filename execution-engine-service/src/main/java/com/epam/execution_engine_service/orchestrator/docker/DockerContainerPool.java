@@ -87,19 +87,7 @@ public class DockerContainerPool {
 
             int spawned = 0;
             for (int i = 0; i < warmMinSize; i++) {
-                try {
-                    SandboxContainer c = createAndStartContainer();
-                    if (!pool.offer(c)) {
-                        log.warn("[Pool] Failed to add container to warm pool - queue full");
-                    }
-                    allContainers.add(c);
-                    liveCount.incrementAndGet();
-                    spawned++;
-                    log.info("[Pool] Container {}/{} ready — id={} port={}",
-                            spawned, warmMinSize, c.getContainerId(), c.getSandboxPort());
-                } catch (Exception e) {
-                    log.error("[Pool] Failed to spawn container {}/{}: {}", i + 1, warmMinSize, e.getMessage());
-                }
+                spawned += spawnAndRegisterContainer(i, warmMinSize);
             }
 
             log.info("[Pool] Initialized: {}/{} containers ready", spawned, warmMinSize);
@@ -107,6 +95,27 @@ public class DockerContainerPool {
         } catch (Throwable e) {
             log.warn("[Pool] Docker not available — running in STUB mode: {}", e.getMessage());
             dockerClient = null;
+        }
+    }
+
+    /**
+     * Spawn a single container and register it in the pool.
+     * @return 1 if successful, 0 if failed
+     */
+    private int spawnAndRegisterContainer(int index, int warmMinSize) {
+        try {
+            SandboxContainer c = createAndStartContainer();
+            if (!pool.offer(c)) {
+                log.warn("[Pool] Failed to add container to warm pool - queue full");
+            }
+            allContainers.add(c);
+            liveCount.incrementAndGet();
+            log.info("[Pool] Container {}/{} ready — id={} port={}",
+                    index + 1, warmMinSize, c.getContainerId(), c.getSandboxPort());
+            return 1;
+        } catch (Exception e) {
+            log.error("[Pool] Failed to spawn container {}/{}: {}", index + 1, warmMinSize, e.getMessage());
+            return 0;
         }
     }
 
@@ -173,7 +182,11 @@ public class DockerContainerPool {
             }
         }
         // Container never became ready — force-remove it
-        try { dockerClient.removeContainerCmd(containerId).withForce(true).exec(); } catch (Exception ignored) {}
+        try {
+            dockerClient.removeContainerCmd(containerId).withForce(true).exec();
+        } catch (Exception e) {
+            log.warn("Failed to remove unready container {}", containerId, e);
+        }
         throw new IllegalStateException(
                 "Sandbox " + containerId + " did not become ready within " +
                 (READY_POLL_MS * READY_MAX_ATTEMPTS / 1000) + "s");

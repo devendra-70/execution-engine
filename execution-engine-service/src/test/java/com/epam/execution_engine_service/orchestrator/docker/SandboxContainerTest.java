@@ -6,6 +6,7 @@ import com.epam.execution_engine_service.domain.Verdict;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.dockerjava.api.DockerClient;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
+@Slf4j
 class SandboxContainerTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -45,7 +47,9 @@ class SandboxContainerTest {
                     client.getInputStream().readAllBytes();   // consume the request
                     client.getOutputStream().write(responseBytes);
                     client.getOutputStream().flush();
-                } catch (IOException ignored) {}
+                } catch (IOException e) {
+                    log.debug("Server socket error (expected in test)", e);
+                }
             });
 
             SandboxContainer container = new SandboxContainer("test-id", mock(DockerClient.class), "localhost", port);
@@ -78,7 +82,9 @@ class SandboxContainerTest {
                     client.getInputStream().readAllBytes();
                     client.getOutputStream().write(responseBytes);
                     client.getOutputStream().flush();
-                } catch (IOException ignored) {}
+                } catch (IOException e) {
+                    log.debug("Server socket error (expected in test)", e);
+                }
             });
 
             List<TestCase> testCases = List.of(
@@ -108,7 +114,9 @@ class SandboxContainerTest {
             Thread serverThread = Thread.ofVirtual().start(() -> {
                 try (Socket client = server.accept()) {
                     // Close immediately without writing any response
-                } catch (IOException ignored) {}
+                } catch (IOException e) {
+                    log.debug("Server socket error (expected in test)", e);
+                }
             });
 
             SandboxContainer container = new SandboxContainer("close-id", mock(DockerClient.class), "localhost", port);

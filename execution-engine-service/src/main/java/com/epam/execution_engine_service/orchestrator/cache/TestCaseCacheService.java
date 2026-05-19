@@ -41,6 +41,7 @@ public class TestCaseCacheService {
                         .input(e.getInput())
                         .expectedOutput(e.getExpectedOutput())
                         .timeoutMs(e.getTimeoutMs())
+                        .isHidden(e.isHidden())
                         .build())
                 .toList();
     }

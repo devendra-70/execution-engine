@@ -17,10 +17,23 @@ public class TestCaseCacheService {
 
     private final TestCaseRepository testCaseRepository;
 
-    @Cacheable(cacheNames = "testCases", key = "#p0")
+    /** Returns ALL test cases for a problem (used by submit mode). */
+    @Cacheable(cacheNames = "testCases", key = "'all:' + #p0")
     public List<TestCase> getTestCases(Long problemId) {
-        log.info("Cache miss for problemId {}. Loading from DB.", problemId);
+        log.info("Cache miss (all) for problemId {}. Loading from DB.", problemId);
         List<TestCaseEntity> entities = testCaseRepository.findByProblemId(problemId);
+        return toTestCases(entities);
+    }
+
+    /** Returns only visible (non-hidden) test cases (used by run mode). */
+    @Cacheable(cacheNames = "testCases", key = "'visible:' + #p0")
+    public List<TestCase> getVisibleTestCases(Long problemId) {
+        log.info("Cache miss (visible) for problemId {}. Loading from DB.", problemId);
+        List<TestCaseEntity> entities = testCaseRepository.findByProblemIdAndIsHidden(problemId, false);
+        return toTestCases(entities);
+    }
+
+    private List<TestCase> toTestCases(List<TestCaseEntity> entities) {
         return entities.stream()
                 .map(e -> TestCase.builder()
                         .id(e.getId())
@@ -28,6 +41,7 @@ public class TestCaseCacheService {
                         .input(e.getInput())
                         .expectedOutput(e.getExpectedOutput())
                         .timeoutMs(e.getTimeoutMs())
+                        .isHidden(e.isHidden())
                         .build())
                 .toList();
     }

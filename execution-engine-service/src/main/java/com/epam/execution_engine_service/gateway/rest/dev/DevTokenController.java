@@ -1,4 +1,4 @@
-package com.epam.execution_engine_service.gateway.rest;
+package com.epam.execution_engine_service.gateway.rest.dev;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -51,3 +51,4 @@ public class DevTokenController {
         );
     }
 }
+

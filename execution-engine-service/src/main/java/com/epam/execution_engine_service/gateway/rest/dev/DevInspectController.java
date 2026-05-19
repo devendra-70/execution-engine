@@ -1,4 +1,4 @@
-package com.epam.execution_engine_service.gateway.rest;
+package com.epam.execution_engine_service.gateway.rest.dev;
 
 import lombok.RequiredArgsConstructor;
 import com.epam.execution_engine_service.persistence.entity.SubmissionEntity;
@@ -158,3 +158,4 @@ public class DevInspectController {
         return ResponseEntity.ok(rows);
     }
 }
+

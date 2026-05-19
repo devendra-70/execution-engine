@@ -35,6 +35,10 @@ app:
     sandbox-host: ${SANDBOX_HOST:localhost}
 
 spring:
+  sql:
+    init:
+      mode: always                        # run data.sql for non-embedded DBs (PostgreSQL)
+
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:codeval}
     username: ${DB_USER:codeval}
@@ -42,6 +46,7 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    defer-datasource-initialization: true  # run data.sql AFTER Hibernate creates tables
     hibernate:
       ddl-auto: ${SPRING_JPA_DDL_AUTO:update}
     show-sql: ${SPRING_JPA_SHOW_SQL:false}

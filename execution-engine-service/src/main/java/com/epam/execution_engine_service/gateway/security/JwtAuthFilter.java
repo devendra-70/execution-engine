@@ -34,8 +34,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 // JJWT deserialises JSON numbers as Integer for small values — always use Number
                 Object userIdRaw = c.get("userId");
                 String principal;
-                if (userIdRaw instanceof Number) {
-                    principal = String.valueOf(((Number) userIdRaw).longValue());
+                if (userIdRaw instanceof Number number) {
+                    principal = String.valueOf(number.longValue());
                 } else {
                     // fallback: sub claim
                     principal = c.getSubject();

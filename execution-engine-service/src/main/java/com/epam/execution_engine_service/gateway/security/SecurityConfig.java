@@ -3,7 +3,6 @@ package com.epam.execution_engine_service.gateway.security;
 import lombok.RequiredArgsConstructor;
 import com.epam.execution_engine_service.gateway.ratelimit.RateLimitFilter;
 
-import org.springframework.boot.SpringApplication;
 import org.springframework.boot.context.metrics.buffering.BufferingApplicationStartup;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

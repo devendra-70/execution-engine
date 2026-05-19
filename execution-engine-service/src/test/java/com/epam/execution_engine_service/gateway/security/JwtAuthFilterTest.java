@@ -1,8 +1,6 @@
 package com.epam.execution_engine_service.gateway.security;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,13 +16,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import javax.crypto.SecretKey;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Date;
+import java.util.Optional;
+
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -63,7 +59,6 @@ class JwtAuthFilterTest {
     @InjectMocks
     private JwtAuthFilter jwtAuthFilter;
 
-    private static final String TEST_SECRET_KEY = "test-secret-key-that-is-long-enough-for-hmac-sha256-algorithm-validation";
     private static final long TEST_USER_ID = 12345L;
     private static final String TEST_SUBJECT = "testUser";
 

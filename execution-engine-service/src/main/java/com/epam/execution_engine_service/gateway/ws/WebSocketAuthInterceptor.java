@@ -41,10 +41,9 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             if (token != null) {
                 jwtTokenValidator.validateAndExtract(token).ifPresentOrElse(claims -> {
                     Object userIdRaw = claims.get("userId");
-                    String principal = (userIdRaw instanceof Number)
-                            ? String.valueOf(((Number) userIdRaw).longValue())
+                    String principal = (userIdRaw instanceof Number number)
+                            ? String.valueOf(number.longValue())
                             : claims.getSubject();
-
                     if (principal != null) {
                         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                                 principal, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))

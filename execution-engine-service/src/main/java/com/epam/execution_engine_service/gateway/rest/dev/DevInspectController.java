@@ -25,6 +25,13 @@ public class DevInspectController {
     private final StringRedisTemplate redisTemplate;
     private final SubmissionRepository submissionRepository;
 
+    // JSON response field names
+    private static final String FIELD_VALUE = "value";
+    private static final String FIELD_TTL_SECONDS = "ttlSeconds";
+    private static final String FIELD_USER_ID = "userId";
+    private static final String FIELD_EXECUTION_ID = "executionId";
+    private static final String FIELD_VERDICT = "verdict";
+
     // ------------------------------------------------------------------
     // Redis
     // ------------------------------------------------------------------
@@ -39,16 +46,16 @@ public class DevInspectController {
             return ResponseEntity.ok(Map.of(
                     "key", key,
                     "exists", false,
-                    "value", "—",
-                    "ttlSeconds", -2
+                    FIELD_VALUE, "—",
+                    FIELD_TTL_SECONDS, -2
             ));
         }
         Long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
         return ResponseEntity.ok(Map.of(
                 "key", key,
                 "exists", true,
-                "value", value,
-                "ttlSeconds", ttl != null ? ttl : -1
+                FIELD_VALUE, value,
+                FIELD_TTL_SECONDS, ttl != null ? ttl : -1
         ));
     }
 
@@ -65,12 +72,12 @@ public class DevInspectController {
                 Long ttl = redisTemplate.getExpire(k, TimeUnit.SECONDS);
                 entries.add(Map.of(
                         "key", k,
-                        "value", val != null ? val : "null",
-                        "ttlSeconds", ttl != null ? ttl : -1
+                        FIELD_VALUE, val != null ? val : "null",
+                        FIELD_TTL_SECONDS, ttl != null ? ttl : -1
                 ));
             }
         }
-        return ResponseEntity.ok(Map.of("userId", userId, "keys", entries));
+        return ResponseEntity.ok(Map.of(FIELD_USER_ID, userId, "keys", entries));
     }
 
     // ------------------------------------------------------------------
@@ -91,7 +98,7 @@ public class DevInspectController {
         Optional<SubmissionEntity> opt = submissionRepository.findById(id);
         if (opt.isEmpty()) {
             return ResponseEntity.ok(Map.of(
-                    "executionId", executionId,
+                    FIELD_EXECUTION_ID, executionId,
                     "found", false,
                     "message", "No record in DB yet — still processing or failed before persist"
             ));
@@ -102,7 +109,7 @@ public class DevInspectController {
                 .map(r -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("testCaseId", r.getTestCaseId());
-                    m.put("verdict", r.getVerdict());
+                    m.put(FIELD_VERDICT, r.getVerdict());
                     m.put("runtimeMs", r.getRuntimeMs());
                     m.put("memoryBytes", r.getMemoryBytes());
                     m.put("actualOutput", r.getActualOutput());
@@ -114,13 +121,13 @@ public class DevInspectController {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("found", true);
-        result.put("executionId", s.getId());
-        result.put("userId", s.getUserId());
+        result.put(FIELD_EXECUTION_ID, s.getId());
+        result.put(FIELD_USER_ID, s.getUserId());
         result.put("problemId", s.getProblemId());
         result.put("problemName", s.getProblemName());
         result.put("language", s.getLanguage());
         result.put("mode", s.getMode());
-        result.put("verdict", s.getVerdict());
+        result.put(FIELD_VERDICT, s.getVerdict());
         result.put("score", s.getScore());
         result.put("totalRuntimeMs", s.getTotalRuntimeMs());
         result.put("memoryBytes", s.getMemoryBytes());
@@ -142,11 +149,11 @@ public class DevInspectController {
                 .limit(limit)
                 .map(s -> {
                     Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("executionId", s.getId());
-                    m.put("userId", s.getUserId());
+                    m.put(FIELD_EXECUTION_ID, s.getId());
+                    m.put(FIELD_USER_ID, s.getUserId());
                     m.put("problemId", s.getProblemId());
                     m.put("mode", s.getMode());
-                    m.put("verdict", s.getVerdict());
+                    m.put(FIELD_VERDICT, s.getVerdict());
                     m.put("score", s.getScore());
                     m.put("totalRuntimeMs", s.getTotalRuntimeMs());
                     m.put("submittedAt", s.getSubmittedAt());

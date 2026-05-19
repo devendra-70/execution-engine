@@ -21,6 +21,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ExecutionOrchestrationService {
 
+    private static final String STUB_OUTPUT = "(stub)";
+
     private final TestCaseCacheService testCaseCacheService;
     private final DockerContainerPool containerPool;
     private final PersistenceService persistenceService;
@@ -58,10 +60,10 @@ public class ExecutionOrchestrationService {
         if (!containerPool.isDockerAvailable()) {
             // Stub mode: Docker not available (dev/CI environment)
             log.warn("Running in STUB mode - Docker unavailable");
-            testCaseResults = runStubExecution(testCases, taskEvent.getSourceCode());
+            testCaseResults = runStubExecution(testCases);
         } else if (testCases.isEmpty()) {
             log.warn("No test cases for problemId {} — returning stub ACCEPTED", taskEvent.getProblemId());
-            testCaseResults = runStubExecution(testCases, taskEvent.getSourceCode());
+            testCaseResults = runStubExecution(testCases);
         } else {
             // 2. Acquire sandbox container from pool
             log.info("[Orchestrator] Acquiring sandbox container (pool size={})", containerPool.getPoolSize());
@@ -111,13 +113,13 @@ public class ExecutionOrchestrationService {
         log.info("Orchestration complete for executionId={}, verdict={}", taskEvent.getExecutionId(), finalVerdict);
     }
 
-    private List<TestCaseResultEvent> runStubExecution(List<TestCase> testCases, String sourceCode) {
+    private List<TestCaseResultEvent> runStubExecution(List<TestCase> testCases) {
         if (testCases.isEmpty()) {
             return List.of(TestCaseResultEvent.builder()
                     .testCaseId(0L)
                     .verdict(Verdict.ACCEPTED)
-                    .actualOutput("(stub)")
-                    .expectedOutput("(stub)")
+                    .actualOutput(STUB_OUTPUT)
+                    .expectedOutput(STUB_OUTPUT)
                     .runtimeMs(1)
                     .memoryBytes(1024)
                     .build());
@@ -126,7 +128,7 @@ public class ExecutionOrchestrationService {
                 .map(tc -> TestCaseResultEvent.builder()
                         .testCaseId(tc.getId())
                         .verdict(Verdict.ACCEPTED)
-                        .actualOutput("(stub)")
+                        .actualOutput(STUB_OUTPUT)
                         .expectedOutput(tc.getExpectedOutput())
                         .runtimeMs(1)
                         .memoryBytes(1024)

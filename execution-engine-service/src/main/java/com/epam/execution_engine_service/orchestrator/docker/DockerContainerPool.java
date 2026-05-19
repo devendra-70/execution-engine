@@ -89,7 +89,9 @@ public class DockerContainerPool {
             for (int i = 0; i < warmMinSize; i++) {
                 try {
                     SandboxContainer c = createAndStartContainer();
-                    pool.offer(c);
+                    if (!pool.offer(c)) {
+                        log.warn("[Pool] Failed to add container to warm pool - queue full");
+                    }
                     allContainers.add(c);
                     liveCount.incrementAndGet();
                     spawned++;
@@ -219,7 +221,9 @@ public class DockerContainerPool {
             discardAndReplace(container);
             return;
         }
-        pool.offer(container);
+        if (!pool.offer(container)) {
+            log.warn("[Pool] Failed to return container {} to pool - queue full", container.getContainerId());
+        }
         log.debug("[Pool] Released container {} back (pool size now ~{})",
                 container.getContainerId(), pool.size());
     }
@@ -254,7 +258,9 @@ public class DockerContainerPool {
             try {
                 SandboxContainer fresh = createAndStartContainer();
                 allContainers.add(fresh);
-                pool.offer(fresh);
+                if (!pool.offer(fresh)) {
+                    log.warn("[Pool] Failed to add replacement container to pool - queue full");
+                }
                 liveCount.incrementAndGet();
                 log.info("[Pool] Replacement container {} ready (pool size ~{})",
                         fresh.getContainerId(), pool.size());

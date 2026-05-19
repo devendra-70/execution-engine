@@ -146,4 +146,75 @@ class TestCaseCacheServiceTest {
         // Without Spring cache proxy, repository is called each time
         verify(testCaseRepository, times(2)).findByProblemId(problemId);
     }
+
+    // ── getVisibleTestCases ───────────────────────────────────────────
+
+    @Test
+    void getVisibleTestCases_singleVisibleEntity_mappedCorrectly() {
+        Long problemId = 42L;
+        TestCaseEntity entity = TestCaseEntity.builder()
+                .id(1L)
+                .problemId(problemId)
+                .input("1 2")
+                .expectedOutput("3")
+                .timeoutMs(1000)
+                .isHidden(false)
+                .build();
+        when(testCaseRepository.findByProblemIdAndIsHidden(problemId, false)).thenReturn(List.of(entity));
+
+        List<TestCase> result = testCaseCacheService.getVisibleTestCases(problemId);
+
+        assertEquals(1, result.size());
+        TestCase tc = result.get(0);
+        assertEquals(1L, tc.getId());
+        assertEquals(problemId, tc.getProblemId());
+        assertEquals("1 2", tc.getInput());
+        assertEquals("3", tc.getExpectedOutput());
+        assertEquals(1000, tc.getTimeoutMs());
+        assertFalse(tc.isHidden());
+        verify(testCaseRepository).findByProblemIdAndIsHidden(problemId, false);
+    }
+
+    @Test
+    void getVisibleTestCases_noVisibleEntities_returnsEmptyList() {
+        Long problemId = 99L;
+        when(testCaseRepository.findByProblemIdAndIsHidden(problemId, false))
+                .thenReturn(Collections.emptyList());
+
+        List<TestCase> result = testCaseCacheService.getVisibleTestCases(problemId);
+
+        assertTrue(result.isEmpty());
+        verify(testCaseRepository).findByProblemIdAndIsHidden(problemId, false);
+    }
+
+    @Test
+    void getVisibleTestCases_multipleEntities_allMappedInOrder() {
+        Long problemId = 10L;
+        List<TestCaseEntity> entities = List.of(
+                TestCaseEntity.builder().id(1L).problemId(problemId).input("a").expectedOutput("b").timeoutMs(500).isHidden(false).build(),
+                TestCaseEntity.builder().id(2L).problemId(problemId).input("c").expectedOutput("d").timeoutMs(600).isHidden(false).build()
+        );
+        when(testCaseRepository.findByProblemIdAndIsHidden(problemId, false)).thenReturn(entities);
+
+        List<TestCase> result = testCaseCacheService.getVisibleTestCases(problemId);
+
+        assertEquals(2, result.size());
+        assertEquals(1L, result.get(0).getId());
+        assertEquals(2L, result.get(1).getId());
+    }
+
+    // ── isHidden field mapping ────────────────────────────────────────
+
+    @Test
+    void getTestCases_hiddenEntity_isHiddenMappedTrue() {
+        Long problemId = 55L;
+        TestCaseEntity entity = TestCaseEntity.builder()
+                .id(7L).problemId(problemId).input("x").expectedOutput("y").timeoutMs(300).isHidden(true)
+                .build();
+        when(testCaseRepository.findByProblemId(problemId)).thenReturn(List.of(entity));
+
+        List<TestCase> result = testCaseCacheService.getTestCases(problemId);
+
+        assertTrue(result.get(0).isHidden());
+    }
 }

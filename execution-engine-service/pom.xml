@@ -130,7 +130,8 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <configuration>
                     <excludes>
-                        <exclude>com/epam/execution_engine_service/util/**</exclude>
+                        <exclude>**/util/**</exclude>
+                        <exclude>execution-engine-service\src\main\java\com\epam\execution_engine_service\ExecutionEngineServiceApplication.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>

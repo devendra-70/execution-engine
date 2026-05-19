@@ -218,7 +218,7 @@ class DockerContainerPoolTest {
     // ── initialization without Docker (stub mode) ─────────────────────
 
     @Test
-    void initialize_dockerUnavailable_dockerClientRemainsNull() throws Exception {
+    void initialize_dockerUnavailable_dockerClientRemainsNull() {
         DockerContainerPool pool = new DockerContainerPool();
         ReflectionTestUtils.setField(pool, "dockerHost", "tcp://127.0.0.1:1"); // unreachable
         ReflectionTestUtils.setField(pool, "sandboxImage", "test-image");

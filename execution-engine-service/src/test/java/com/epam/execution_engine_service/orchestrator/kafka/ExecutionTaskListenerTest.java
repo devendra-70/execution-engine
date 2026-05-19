@@ -171,7 +171,7 @@ class ExecutionTaskListenerTest {
     }
 
     @Test
-    void onExecutionTask_differentEvents_eachGetsOwnRedisKey() throws Exception {
+    void onExecutionTask_differentEvents_eachGetsOwnRedisKey() {
         ExecutionTaskEvent event1 = ExecutionTaskEvent.builder()
                 .executionId(UUID.fromString("11111111-0000-0000-0000-000000000000"))
                 .userId(1L).problemId(1L).language("JAVA").mode("RUN")

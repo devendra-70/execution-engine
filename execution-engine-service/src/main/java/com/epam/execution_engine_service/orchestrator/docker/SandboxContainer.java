@@ -19,7 +19,6 @@ public class SandboxContainer {
 
     @Getter
     private final String containerId;
-    private final DockerClient dockerClient;
     private final String sandboxHost;
     @Getter
     private final int sandboxPort;
@@ -31,7 +30,6 @@ public class SandboxContainer {
     public SandboxContainer(String containerId, DockerClient dockerClient,
                             String sandboxHost, int sandboxPort) {
         this.containerId = containerId;
-        this.dockerClient = dockerClient;
         this.sandboxHost = sandboxHost;
         this.sandboxPort = sandboxPort;
     }

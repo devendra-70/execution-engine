@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -363,6 +364,8 @@ class DockerContainerPoolTest {
         ReflectionTestUtils.setField(pool, "sandboxHost", "localhost");
         ReflectionTestUtils.setField(pool, "warmMinSize", 1);
         ReflectionTestUtils.setField(pool, "memoryLimitMb", 256L);
+        ReflectionTestUtils.setField(pool, "readyPollMs", 50);
+        ReflectionTestUtils.setField(pool, "readyMaxAttempts", 10);
 
         DockerClient mockDockerClient = mock(DockerClient.class);
         PingCmd pingCmd = mock(PingCmd.class);
@@ -401,6 +404,8 @@ class DockerContainerPoolTest {
         DockerContainerPool pool = new DockerContainerPool();
         ReflectionTestUtils.setField(pool, "sandboxHost", "localhost");
         ReflectionTestUtils.setField(pool, "sandboxImage", "test-image");
+        ReflectionTestUtils.setField(pool, "readyPollMs", 50);
+        ReflectionTestUtils.setField(pool, "readyMaxAttempts", 10);
 
         BlockingQueue<SandboxContainer> internalPool =
                 (BlockingQueue<SandboxContainer>) ReflectionTestUtils.getField(pool, "pool");
@@ -463,6 +468,8 @@ class DockerContainerPoolTest {
         DockerContainerPool pool = new DockerContainerPool();
         ReflectionTestUtils.setField(pool, "sandboxHost", "localhost");
         ReflectionTestUtils.setField(pool, "sandboxImage", "test-image");
+        ReflectionTestUtils.setField(pool, "readyPollMs", 50);
+        ReflectionTestUtils.setField(pool, "readyMaxAttempts", 10);
 
         try (ServerSocket server = new ServerSocket(0)) {
             int port = server.getLocalPort();
@@ -496,7 +503,7 @@ class DockerContainerPoolTest {
             // Poll until replacement is added to pool (bg virtual thread completes quickly)
             long deadline = System.currentTimeMillis() + 3000;
             while (pool.getPoolSize() == 0 && System.currentTimeMillis() < deadline) {
-                Thread.sleep(50);
+                LockSupport.parkNanos(50_000_000L);
             }
 
             assertEquals(1, pool.getPoolSize());
@@ -512,6 +519,8 @@ class DockerContainerPoolTest {
         DockerContainerPool pool = new DockerContainerPool();
         ReflectionTestUtils.setField(pool, "sandboxHost", "localhost");
         ReflectionTestUtils.setField(pool, "sandboxImage", "test-image");
+        ReflectionTestUtils.setField(pool, "readyPollMs", 50);
+        ReflectionTestUtils.setField(pool, "readyMaxAttempts", 10);
 
         BlockingQueue<SandboxContainer> internalPool =
                 (BlockingQueue<SandboxContainer>) ReflectionTestUtils.getField(pool, "pool");
@@ -550,7 +559,7 @@ class DockerContainerPoolTest {
             // Poll until bg thread increments liveCount back to 1 (signal it has completed)
             long deadline = System.currentTimeMillis() + 3000;
             while (liveCount.get() == 0 && System.currentTimeMillis() < deadline) {
-                Thread.sleep(50);
+                LockSupport.parkNanos(50_000_000L);
             }
 
             assertEquals(200, pool.getPoolSize()); // pool did not grow
@@ -564,6 +573,8 @@ class DockerContainerPoolTest {
     void waitForSandboxReady_firstAttemptFails_retriesThenSucceeds() throws Exception {
         DockerContainerPool pool = new DockerContainerPool();
         ReflectionTestUtils.setField(pool, "sandboxHost", "localhost");
+        ReflectionTestUtils.setField(pool, "readyPollMs", 250);
+        ReflectionTestUtils.setField(pool, "readyMaxAttempts", 5);
 
         DockerClient mockDockerClient = mock(DockerClient.class);
         ReflectionTestUtils.setField(pool, "dockerClient", mockDockerClient);
@@ -577,19 +588,89 @@ class DockerContainerPoolTest {
         // After 200ms, open a server on that same port (well within the 500ms retry sleep)
         Thread.ofVirtual().start(() -> {
             try {
-                Thread.sleep(200);
+                LockSupport.parkNanos(200_000_000L);
                 try (ServerSocket server = new ServerSocket(port)) {
                     while (!server.isClosed()) {
                         try (Socket s = server.accept()) { /* close */ } catch (Exception ignored) { break; }
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                // virtual thread interrupted or server could not bind during test teardown
+            }
         });
 
         // First attempt: connection refused (catch block hit, Thread.sleep called)
         // After 500ms sleep: server is listening, second attempt succeeds
         assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(
                 pool, "waitForSandboxReady", port, "retry-probe-id"));
+    }
+
+    // ── waitForSandboxReady — all attempts exhausted, removeContainer succeeds ──
+
+    @Test
+    void waitForSandboxReady_allAttemptsExhausted_removesContainerAndThrows() {
+        DockerContainerPool pool = new DockerContainerPool();
+        ReflectionTestUtils.setField(pool, "sandboxHost", "localhost");
+        // Use port 1 — guaranteed connection refused; set tiny poll/attempt values
+        ReflectionTestUtils.setField(pool, "readyPollMs", 1);
+        ReflectionTestUtils.setField(pool, "readyMaxAttempts", 2);
+
+        DockerClient mockDockerClient = mock(DockerClient.class);
+        ReflectionTestUtils.setField(pool, "dockerClient", mockDockerClient);
+
+        RemoveContainerCmd removeCmd = mock(RemoveContainerCmd.class);
+        when(mockDockerClient.removeContainerCmd("exhausted-id")).thenReturn(removeCmd);
+        when(removeCmd.withForce(true)).thenReturn(removeCmd);
+
+        Exception ex = assertThrows(Exception.class, () ->
+                ReflectionTestUtils.invokeMethod(pool, "waitForSandboxReady", 1, "exhausted-id"));
+        assertTrue(ex.getMessage() != null && ex.getMessage().contains("exhausted-id"));
+        verify(removeCmd).exec();
+    }
+
+    // ── waitForSandboxReady — all attempts exhausted, removeContainer throws ──
+
+    @Test
+    void waitForSandboxReady_allAttemptsExhausted_removeThrows_stillThrowsIllegalState() {
+        DockerContainerPool pool = new DockerContainerPool();
+        ReflectionTestUtils.setField(pool, "sandboxHost", "localhost");
+        ReflectionTestUtils.setField(pool, "readyPollMs", 1);
+        ReflectionTestUtils.setField(pool, "readyMaxAttempts", 2);
+
+        DockerClient mockDockerClient = mock(DockerClient.class);
+        ReflectionTestUtils.setField(pool, "dockerClient", mockDockerClient);
+
+        RemoveContainerCmd removeCmd = mock(RemoveContainerCmd.class);
+        when(mockDockerClient.removeContainerCmd("remove-throws-id")).thenReturn(removeCmd);
+        when(removeCmd.withForce(true)).thenReturn(removeCmd);
+        doThrow(new RuntimeException("docker error")).when(removeCmd).exec();
+
+        // Should still throw IllegalStateException even if removeContainerCmd fails
+        Exception ex = assertThrows(Exception.class, () ->
+                ReflectionTestUtils.invokeMethod(pool, "waitForSandboxReady", 1, "remove-throws-id"));
+        assertTrue(ex.getMessage() != null && ex.getMessage().contains("remove-throws-id"));
+    }
+
+    // ── waitForSandboxReady — every-5th-attempt debug log branch ─────────
+
+    @Test
+    void waitForSandboxReady_fiveAttemptsExhausted_coversEvery5thLogBranch() {
+        DockerContainerPool pool = new DockerContainerPool();
+        ReflectionTestUtils.setField(pool, "sandboxHost", "localhost");
+        ReflectionTestUtils.setField(pool, "readyPollMs", 1);
+        ReflectionTestUtils.setField(pool, "readyMaxAttempts", 5);
+
+        DockerClient mockDockerClient = mock(DockerClient.class);
+        ReflectionTestUtils.setField(pool, "dockerClient", mockDockerClient);
+
+        RemoveContainerCmd removeCmd = mock(RemoveContainerCmd.class);
+        when(mockDockerClient.removeContainerCmd("log5-id")).thenReturn(removeCmd);
+        when(removeCmd.withForce(true)).thenReturn(removeCmd);
+
+        // 5 attempts hit the `attempt % 5 == 0` log branch (attempt=5), then exhaustion throw
+        assertThrows(Exception.class, () ->
+                ReflectionTestUtils.invokeMethod(pool, "waitForSandboxReady", 1, "log5-id"));
+        verify(removeCmd).exec();
     }
 
     // ── Docker-mocked createAndStartContainer — null port bindings ─────
@@ -640,6 +721,8 @@ class DockerContainerPoolTest {
         DockerContainerPool pool = new DockerContainerPool();
         ReflectionTestUtils.setField(pool, "sandboxHost", "localhost");
         ReflectionTestUtils.setField(pool, "sandboxImage", "test-image");
+        ReflectionTestUtils.setField(pool, "readyPollMs", 50);
+        ReflectionTestUtils.setField(pool, "readyMaxAttempts", 10);
 
         try (ServerSocket server = new ServerSocket(0)) {
             int port = server.getLocalPort();

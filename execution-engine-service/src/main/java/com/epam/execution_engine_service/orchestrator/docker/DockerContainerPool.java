@@ -45,9 +45,13 @@ public class DockerContainerPool {
     private String sandboxHost;
 
     private static final int SANDBOX_INNER_PORT   = 5000;
-    private static final int READY_POLL_MS        = 500;
-    private static final int READY_MAX_ATTEMPTS   = 30;   // 15 s max
     private static final int PING_TIMEOUT_MS      = 2_000;
+
+    @Value("${app.execution.pool.ready-poll-ms:500}")
+    private int readyPollMs;
+
+    @Value("${app.execution.pool.ready-max-attempts:30}")
+    private int readyMaxAttempts;
 
     private DockerClient dockerClient;
 
@@ -168,7 +172,7 @@ public class DockerContainerPool {
      */
     private void waitForSandboxReady(int hostPort, String containerId) throws Exception {
         log.debug("[Pool] Waiting for container {} to be ready on port {} ...", containerId, hostPort);
-        for (int attempt = 1; attempt <= READY_MAX_ATTEMPTS; attempt++) {
+        for (int attempt = 1; attempt <= readyMaxAttempts; attempt++) {
             try (Socket socket = new Socket()) {
                 socket.connect(new java.net.InetSocketAddress(sandboxHost, hostPort), PING_TIMEOUT_MS);
                 // TCP handshake succeeded — sandbox JVM is listening
@@ -176,9 +180,9 @@ public class DockerContainerPool {
                 return;
             } catch (Exception ignored) {
                 if (attempt % 5 == 0) {
-                    log.debug("[Pool] Still waiting for {} (attempt {}/{})", containerId, attempt, READY_MAX_ATTEMPTS);
+                    log.debug("[Pool] Still waiting for {} (attempt {}/{})", containerId, attempt, readyMaxAttempts);
                 }
-                Thread.sleep(READY_POLL_MS);
+                Thread.sleep(readyPollMs);
             }
         }
         // Container never became ready — force-remove it
@@ -189,7 +193,7 @@ public class DockerContainerPool {
         }
         throw new IllegalStateException(
                 "Sandbox " + containerId + " did not become ready within " +
-                (READY_POLL_MS * READY_MAX_ATTEMPTS / 1000) + "s");
+                (readyPollMs * readyMaxAttempts / 1000) + "s");
     }
 
     // ──────────────────────────────────────────────────────────────────

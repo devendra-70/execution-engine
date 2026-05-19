@@ -10,6 +10,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,8 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
 import java.util.Optional;
-
-import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -223,36 +225,22 @@ class JwtAuthFilterTest {
     class InvalidTokenTests {
 
         /**
-         * Test that no token leads to unauthenticated request.
+         * Test various invalid/missing token scenarios.
+         * All should result in no authentication being set.
          */
-        @Test
-        @DisplayName("Should not set SecurityContext when no token is provided")
-        void testNoTokenProvided() throws ServletException, IOException {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("invalidTokenScenarios")
+        @DisplayName("Should not set SecurityContext for missing/invalid tokens")
+        void testInvalidTokenScenarios(String description, String authHeader, String tokenParam, String validatorResponse) 
+                throws ServletException, IOException {
             // Arrange
-            when(request.getHeader("Authorization")).thenReturn(null);
-            when(request.getParameter("token")).thenReturn(null);
-
-            // Act
-            jwtAuthFilter.doFilterInternal(request, response, filterChain);
-
-            // Assert
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            assertThat(authentication).isNull();
-            verify(filterChain).doFilter(request, response);
-        }
-
-        /**
-         * Test that invalid Bearer token is handled.
-         */
-        @Test
-        @DisplayName("Should not set SecurityContext for invalid Bearer token")
-        void testInvalidBearerToken() throws ServletException, IOException {
-            // Arrange
-            String invalidToken = "invalid-jwt-token";
-            when(request.getHeader("Authorization")).thenReturn("Bearer " + invalidToken);
-            when(request.getParameter("token")).thenReturn(null);
+            when(request.getHeader("Authorization")).thenReturn(authHeader);
+            when(request.getParameter("token")).thenReturn(tokenParam);
             
-            when(jwtTokenValidator.validateAndExtract(invalidToken)).thenReturn(Optional.empty());
+            // If validator should return empty (for invalid bearer token scenario)
+            if ("empty".equals(validatorResponse)) {
+                when(jwtTokenValidator.validateAndExtract("invalid-jwt-token")).thenReturn(Optional.empty());
+            }
 
             // Act
             jwtAuthFilter.doFilterInternal(request, response, filterChain);
@@ -263,61 +251,14 @@ class JwtAuthFilterTest {
             verify(filterChain).doFilter(request, response);
         }
 
-        /**
-         * Test that Authorization header without Bearer prefix is ignored.
-         */
-        @Test
-        @DisplayName("Should ignore Authorization header without Bearer prefix")
-        void testAuthHeaderWithoutBearerPrefix() throws ServletException, IOException {
-            // Arrange
-            when(request.getHeader("Authorization")).thenReturn("Basic dGVzdDp0ZXN0"); // Basic auth
-            when(request.getParameter("token")).thenReturn(null);
-
-            // Act
-            jwtAuthFilter.doFilterInternal(request, response, filterChain);
-
-            // Assert
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            assertThat(authentication).isNull();
-            verify(filterChain).doFilter(request, response);
-        }
-
-        /**
-         * Test that empty Authorization header is handled.
-         */
-        @Test
-        @DisplayName("Should handle empty Authorization header")
-        void testEmptyAuthorizationHeader() throws ServletException, IOException {
-            // Arrange
-            when(request.getHeader("Authorization")).thenReturn("");
-            when(request.getParameter("token")).thenReturn(null);
-
-            // Act
-            jwtAuthFilter.doFilterInternal(request, response, filterChain);
-
-            // Assert
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            assertThat(authentication).isNull();
-            verify(filterChain).doFilter(request, response);
-        }
-
-        /**
-         * Test that empty query parameter token is handled.
-         */
-        @Test
-        @DisplayName("Should handle empty token query parameter")
-        void testEmptyTokenParameter() throws ServletException, IOException {
-            // Arrange
-            when(request.getHeader("Authorization")).thenReturn(null);
-            when(request.getParameter("token")).thenReturn("");
-
-            // Act
-            jwtAuthFilter.doFilterInternal(request, response, filterChain);
-
-            // Assert
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            assertThat(authentication).isNull();
-            verify(filterChain).doFilter(request, response);
+        private static Stream<Arguments> invalidTokenScenarios() {
+            return Stream.of(
+                Arguments.of("no token", null, null, null),
+                Arguments.of("invalid bearer token", "Bearer invalid-jwt-token", null, "empty"),
+                Arguments.of("basic auth instead of bearer", "Basic dGVzdDp0ZXN0", null, null),
+                Arguments.of("empty authorization header", "", null, null),
+                Arguments.of("empty token parameter", null, "", null)
+            );
         }
 
         /**

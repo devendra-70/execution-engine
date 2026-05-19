@@ -52,9 +52,10 @@ class SecurityConfigTest {
         @Test
         @DisplayName("SecurityConfig is created with injected filters")
         void instantiatedWithDependencies() {
-            assertThat(securityConfig).isNotNull();
-            assertThat(securityConfig).hasFieldOrPropertyWithValue("jwtAuthFilter", jwtAuthFilter);
-            assertThat(securityConfig).hasFieldOrPropertyWithValue("rateLimitFilter", rateLimitFilter);
+            assertThat(securityConfig)
+                    .isNotNull()
+                    .hasFieldOrPropertyWithValue("jwtAuthFilter", jwtAuthFilter)
+                    .hasFieldOrPropertyWithValue("rateLimitFilter", rateLimitFilter);
         }
 
         @Test

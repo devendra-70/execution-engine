@@ -88,9 +88,8 @@ class KafkaProducerConfigTest {
             KafkaProducerConfig cfg = buildConfig("broker1:9092", "t", 1);
             DefaultKafkaProducerFactory<?, ?> factory =
                     (DefaultKafkaProducerFactory<?, ?>) cfg.producerFactory();
-            assertThat(factory.getConfigurationProperties()
-                    .get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG))
-                    .isEqualTo("broker1:9092");
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092");
         }
 
         @Test
@@ -99,9 +98,8 @@ class KafkaProducerConfigTest {
             KafkaProducerConfig cfg = buildConfig("localhost:9092", "t", 1);
             DefaultKafkaProducerFactory<?, ?> factory =
                     (DefaultKafkaProducerFactory<?, ?>) cfg.producerFactory();
-            assertThat(factory.getConfigurationProperties()
-                    .get(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG))
-                    .isEqualTo(StringSerializer.class);
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         }
 
         @Test
@@ -110,9 +108,8 @@ class KafkaProducerConfigTest {
             KafkaProducerConfig cfg = buildConfig("localhost:9092", "t", 1);
             DefaultKafkaProducerFactory<?, ?> factory =
                     (DefaultKafkaProducerFactory<?, ?>) cfg.producerFactory();
-            assertThat(factory.getConfigurationProperties()
-                    .get(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG))
-                    .isEqualTo(JsonSerializer.class);
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         }
 
         @Test
@@ -121,9 +118,8 @@ class KafkaProducerConfigTest {
             KafkaProducerConfig cfg = buildConfig("localhost:9092", "t", 1);
             DefaultKafkaProducerFactory<?, ?> factory =
                     (DefaultKafkaProducerFactory<?, ?>) cfg.producerFactory();
-            assertThat(factory.getConfigurationProperties()
-                    .get(ProducerConfig.ACKS_CONFIG))
-                    .isEqualTo("all");
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ProducerConfig.ACKS_CONFIG, "all");
         }
 
         @Test
@@ -132,9 +128,8 @@ class KafkaProducerConfigTest {
             KafkaProducerConfig cfg = buildConfig("localhost:9092", "t", 1);
             DefaultKafkaProducerFactory<?, ?> factory =
                     (DefaultKafkaProducerFactory<?, ?>) cfg.producerFactory();
-            assertThat(factory.getConfigurationProperties()
-                    .get(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG))
-                    .isEqualTo(true);
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
         }
 
         @Test
@@ -143,9 +138,8 @@ class KafkaProducerConfigTest {
             KafkaProducerConfig cfg = buildConfig("localhost:9092", "t", 1);
             DefaultKafkaProducerFactory<?, ?> factory =
                     (DefaultKafkaProducerFactory<?, ?>) cfg.producerFactory();
-            assertThat(factory.getConfigurationProperties()
-                    .get(ProducerConfig.RETRIES_CONFIG))
-                    .isEqualTo(3);
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ProducerConfig.RETRIES_CONFIG, 3);
         }
     }
 

@@ -54,9 +54,8 @@ class KafkaConsumerConfigTest {
             KafkaConsumerConfig cfg = buildConfig("broker1:9092,broker2:9092", 5);
             DefaultKafkaConsumerFactory<?, ?> factory =
                     (DefaultKafkaConsumerFactory<?, ?>) cfg.consumerFactory();
-            Object brokers = factory.getConfigurationProperties()
-                    .get(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG);
-            assertThat(brokers).isEqualTo("broker1:9092,broker2:9092");
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092,broker2:9092");
         }
 
         @Test
@@ -65,9 +64,8 @@ class KafkaConsumerConfigTest {
             KafkaConsumerConfig cfg = buildConfig("localhost:9092", 5);
             DefaultKafkaConsumerFactory<?, ?> factory =
                     (DefaultKafkaConsumerFactory<?, ?>) cfg.consumerFactory();
-            assertThat(factory.getConfigurationProperties()
-                    .get(ConsumerConfig.GROUP_ID_CONFIG))
-                    .isEqualTo("execution-engine-group");
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ConsumerConfig.GROUP_ID_CONFIG, "execution-engine-group");
         }
 
         @Test
@@ -76,9 +74,8 @@ class KafkaConsumerConfigTest {
             KafkaConsumerConfig cfg = buildConfig("localhost:9092", 5);
             DefaultKafkaConsumerFactory<?, ?> factory =
                     (DefaultKafkaConsumerFactory<?, ?>) cfg.consumerFactory();
-            assertThat(factory.getConfigurationProperties()
-                    .get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG))
-                    .isEqualTo(false);
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         }
 
         @Test
@@ -87,9 +84,8 @@ class KafkaConsumerConfigTest {
             KafkaConsumerConfig cfg = buildConfig("localhost:9092", 5);
             DefaultKafkaConsumerFactory<?, ?> factory =
                     (DefaultKafkaConsumerFactory<?, ?>) cfg.consumerFactory();
-            assertThat(factory.getConfigurationProperties()
-                    .get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG))
-                    .isEqualTo("earliest");
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         }
 
         @Test
@@ -98,9 +94,8 @@ class KafkaConsumerConfigTest {
             KafkaConsumerConfig cfg = buildConfig("localhost:9092", 5);
             DefaultKafkaConsumerFactory<?, ?> factory =
                     (DefaultKafkaConsumerFactory<?, ?>) cfg.consumerFactory();
-            assertThat(factory.getConfigurationProperties()
-                    .get(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG))
-                    .isEqualTo(StringDeserializer.class);
+            assertThat(factory.getConfigurationProperties())
+                    .containsEntry(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         }
     }
 

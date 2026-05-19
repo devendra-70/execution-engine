@@ -70,9 +70,9 @@ class ExecutionTaskListenerTest {
         listener.onExecutionTask(event, acknowledgment);
 
         verify(valueOperations).set(
-                eq("execution:status:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
-                eq(ExecutionStatus.PROCESSING.name()),
-                eq(Duration.ofSeconds(600L))
+                "execution:status:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                ExecutionStatus.PROCESSING.name(),
+                Duration.ofSeconds(600L)
         );
     }
 

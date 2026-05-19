@@ -8,6 +8,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -86,8 +89,7 @@ class JwtTokenValidatorTest {
             Optional<Long> result = jwtTokenValidator.extractUserId(validToken);
 
             // Assert
-            assertThat(result).isPresent();
-            assertThat(result.get()).isEqualTo(TEST_USER_ID);
+            assertThat(result).contains(TEST_USER_ID);
         }
 
         /**
@@ -104,8 +106,7 @@ class JwtTokenValidatorTest {
             Optional<Long> result = jwtTokenValidator.extractUserId(validToken);
 
             // Assert
-            assertThat(result).isPresent();
-            assertThat(result.get()).isEqualTo((long) smallUserId);
+            assertThat(result).contains((long) smallUserId);
         }
 
         /**
@@ -135,42 +136,15 @@ class JwtTokenValidatorTest {
     class InvalidTokenTests {
 
         /**
-         * Test handling of null token.
+         * Test handling of null, empty, and malformed tokens.
          */
-        @Test
-        @DisplayName("Should return empty Optional for null token")
-        void testValidateNullToken() {
+        @ParameterizedTest(name = "token=''{0}''")
+        @NullAndEmptySource
+        @ValueSource(strings = {"not.a.valid.jwt.token"})
+        @DisplayName("Should return empty Optional for null, empty, or malformed token")
+        void testValidateBlankOrMalformedToken(String token) {
             // Act
-            Optional<Claims> result = jwtTokenValidator.validateAndExtract(null);
-
-            // Assert
-            assertThat(result).isEmpty();
-        }
-
-        /**
-         * Test handling of empty token string.
-         */
-        @Test
-        @DisplayName("Should return empty Optional for empty token")
-        void testValidateEmptyToken() {
-            // Act
-            Optional<Claims> result = jwtTokenValidator.validateAndExtract("");
-
-            // Assert
-            assertThat(result).isEmpty();
-        }
-
-        /**
-         * Test handling of malformed token.
-         */
-        @Test
-        @DisplayName("Should return empty Optional for malformed token")
-        void testValidateMalformedToken() {
-            // Arrange
-            String malformedToken = "not.a.valid.jwt.token";
-
-            // Act
-            Optional<Claims> result = jwtTokenValidator.validateAndExtract(malformedToken);
+            Optional<Claims> result = jwtTokenValidator.validateAndExtract(token);
 
             // Assert
             assertThat(result).isEmpty();
@@ -261,8 +235,7 @@ class JwtTokenValidatorTest {
                 Optional<Long> result = jwtTokenValidator.extractUserId(token);
 
                 // Assert
-                assertThat(result).isPresent();
-                assertThat(result.get()).isEqualTo(userId);
+                assertThat(result).contains(userId);
             }
         }
     }

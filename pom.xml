@@ -26,6 +26,11 @@
         <docker-java.version>3.3.6</docker-java.version>
         <caffeine.version>3.1.8</caffeine.version>
         <lombok.version>1.18.34</lombok.version>
+        <springdoc.version>2.6.0</springdoc.version>
+        <sonar.coverage.exclusions>
+        **/util/**,
+        **/ExecutionEngineServiceApplication.java
+        </sonar.coverage.exclusions>
     </properties>
 
     <dependencyManagement>
@@ -77,6 +82,11 @@
                 <artifactId>spring-security-test</artifactId>
                 <scope>test</scope>
             </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -111,8 +121,14 @@
                         </execution>
                         <execution>
                             <id>jacoco-report</id>
-                            <phase>verify</phase>
+                            <phase>test</phase>
                             <goals><goal>report</goal></goals>
+                            <configuration>
+                                <excludes>
+                                    <exclude>**/util/**</exclude>
+                                    <exclude>**/ExecutionEngineServiceApplication*</exclude>
+                                </excludes>
+                            </configuration>
                         </execution>
                     </executions>
                 </plugin>

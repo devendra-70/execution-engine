@@ -1,5 +1,6 @@
 package com.epam.execution_engine_service.gateway.rest;
 
+import com.epam.execution_engine_service.gateway.security.JwtTokenValidator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -8,6 +9,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.anyString;
@@ -23,6 +25,9 @@ class ExecutionStatusControllerTest {
     private MockMvc mockMvc;
 
     @MockBean
+    private JwtTokenValidator jwtTokenValidator;
+
+    @MockBean
     private StringRedisTemplate redisTemplate;
 
     @Nested
@@ -30,6 +35,7 @@ class ExecutionStatusControllerTest {
     class GetStatusTests {
 
         @Test
+        @WithMockUser
         @DisplayName("Should return 200 with status when execution found in Redis")
         void testGetStatus_Found() throws Exception {
             String executionId = "exec-123";
@@ -46,6 +52,7 @@ class ExecutionStatusControllerTest {
         }
 
         @Test
+        @WithMockUser
         @DisplayName("Should return 404 when execution status not found in Redis")
         void testGetStatus_NotFound() throws Exception {
             String executionId = "exec-456";
@@ -60,6 +67,7 @@ class ExecutionStatusControllerTest {
         }
 
         @Test
+        @WithMockUser
         @DisplayName("Should return COMPLETED status when execution is complete")
         void testGetStatus_CompletedStatus() throws Exception {
             String executionId = "exec-completed";
@@ -75,6 +83,7 @@ class ExecutionStatusControllerTest {
         }
 
         @Test
+        @WithMockUser
         @DisplayName("Should return RUNNING status when execution is running")
         void testGetStatus_RunningStatus() throws Exception {
             String executionId = "exec-running";
@@ -90,6 +99,7 @@ class ExecutionStatusControllerTest {
         }
 
         @Test
+        @WithMockUser
         @DisplayName("Should handle UUID format executionId")
         void testGetStatus_UUIDFormat() throws Exception {
             String executionId = "550e8400-e29b-41d4-a716-446655440000";
@@ -105,6 +115,7 @@ class ExecutionStatusControllerTest {
         }
 
         @Test
+        @WithMockUser
         @DisplayName("Should return response with executionId and status fields")
         void testGetStatus_ResponseFields() throws Exception {
             String executionId = "exec-fields";
@@ -116,11 +127,12 @@ class ExecutionStatusControllerTest {
 
             mockMvc.perform(get("/api/executions/{executionId}/status", executionId))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$").hasJsonPath("executionId"))
-                    .andExpect(jsonPath("$").hasJsonPath("status"));
+                    .andExpect(jsonPath("$.executionId").exists())
+                    .andExpect(jsonPath("$.status").exists());
         }
 
         @Test
+        @WithMockUser
         @DisplayName("Should handle special characters in executionId")
         void testGetStatus_SpecialCharacterId() throws Exception {
             String executionId = "exec-123-test";
@@ -136,6 +148,7 @@ class ExecutionStatusControllerTest {
         }
 
         @Test
+        @WithMockUser
         @DisplayName("Should verify correct Redis key is used")
         void testGetStatus_ExactKeyFormat() throws Exception {
             String executionId = "test-exec";

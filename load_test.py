@@ -5,6 +5,7 @@ Usage:
     pip install requests
     python load_test.py
 
+Runs in continuous waves until you press Ctrl+C.
 Tokens are auto-fetched from GET /api/dev/token?userId=<N>
 No manual JWT setup needed — just make sure the app is running.
 """
@@ -12,14 +13,17 @@ No manual JWT setup needed — just make sure the app is running.
 import concurrent.futures
 import time
 import requests
+import signal
+import sys
 from collections import Counter
 
 # ─────────────────────────── CONFIG ───────────────────────────
-BASE_URL       = "http://localhost:8080"
+BASE_URL          = "http://localhost:8080"
 
-TOTAL_REQUESTS = 100   # total submissions to fire
-CONCURRENCY    = 10    # parallel workers  (also = number of virtual users)
-PROBLEM_ID     = 1     # a valid problemId in your DB
+BATCH_SIZE        = 20    # requests fired per wave
+CONCURRENCY       = 10    # parallel workers (also = number of virtual users)
+DELAY_BETWEEN_WAVES = 1   # seconds to wait between waves (0 = fire as fast as possible)
+PROBLEM_ID     = 3     # a valid problemId in your DB
 LANGUAGE       = "JAVA"
 MODE           = "run" # "run" = sample tests only (faster); "submit" = all tests
 
@@ -85,74 +89,69 @@ def submit(task_id: int, tokens: list[str]) -> dict:
 
 
 def run_load_test():
-    # Step 1: auto-fetch one token per virtual user
     tokens = fetch_tokens(CONCURRENCY)
 
-    print(f"🚀  Starting load test: {TOTAL_REQUESTS} requests  |  concurrency={CONCURRENCY}\n")
-    results = []
-    start = time.perf_counter()
+    grand_total   = 0
+    grand_codes   = Counter()
+    grand_elapsed = []
+    wave          = 0
+    test_start    = time.perf_counter()
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
-        futures = {pool.submit(submit, i, tokens): i for i in range(TOTAL_REQUESTS)}
-        for idx, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            r = future.result()
-            results.append(r)
-            status = r["status_code"]
-            mark = "✅" if status == 202 else ("⚠️ 429" if status == 429 else f"❌ {status}")
-            print(f"  [{idx:>4}/{TOTAL_REQUESTS}]  {mark}  {r['elapsed_s']}s  id={r['execution_id'] or r['error']}")
+    print(f"\n🚀  Continuous load test  |  batch={BATCH_SIZE}  concurrency={CONCURRENCY}")
+    print("    Press Ctrl+C to stop and see the final summary.\n")
 
-    total_time = round(time.perf_counter() - start, 2)
+    try:
+        while True:
+            wave += 1
+            wave_results = []
 
-    # ── Summary ──
-    codes = Counter(r["status_code"] for r in results)
-    elapsed_ok = [r["elapsed_s"] for r in results if r["status_code"] == 202]
+            with concurrent.futures.ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
+                futures = {pool.submit(submit, grand_total + i, tokens): i for i in range(BATCH_SIZE)}
+                for future in concurrent.futures.as_completed(futures):
+                    r = future.result()
+                    wave_results.append(r)
+                    status = r["status_code"]
+                    mark = "✅" if status == 202 else ("⚠️  429" if status == 429 else f"❌  {status}")
+                    print(f"  [wave {wave:>4} | #{grand_total + len(wave_results):>6}]  {mark}  {r['elapsed_s']}s  id={r['execution_id'] or r['error']}")
 
+            grand_total += len(wave_results)
+            for r in wave_results:
+                grand_codes[r["status_code"]] += 1
+                if r["status_code"] == 202:
+                    grand_elapsed.append(r["elapsed_s"])
+
+            ok = sum(1 for r in wave_results if r["status_code"] == 202)
+            elapsed = round(time.perf_counter() - test_start, 1)
+            print(f"\n  ── wave {wave} done  |  accepted={ok}/{BATCH_SIZE}  total={grand_total}  elapsed={elapsed}s ──\n")
+
+            if DELAY_BETWEEN_WAVES > 0:
+                time.sleep(DELAY_BETWEEN_WAVES)
+
+    except KeyboardInterrupt:
+        pass
+
+    # ── Final Summary ──
+    total_time = round(time.perf_counter() - test_start, 2)
     print("\n" + "═" * 60)
-    print("📊  RESULTS")
+    print("📊  FINAL RESULTS  (stopped by Ctrl+C)")
     print("═" * 60)
-    print(f"  Total requests   : {TOTAL_REQUESTS}")
+    print(f"  Waves completed  : {wave}")
+    print(f"  Total requests   : {grand_total}")
     print(f"  Concurrency      : {CONCURRENCY}")
     print(f"  Wall-clock time  : {total_time}s")
-    print(f"  Throughput       : {round(TOTAL_REQUESTS / total_time, 1)} req/s")
+    print(f"  Throughput       : {round(grand_total / total_time, 1)} req/s")
     print()
     print("  HTTP status breakdown:")
-    for code, count in sorted(codes.items(), key=lambda x: str(x[0])):
+    for code, count in sorted(grand_codes.items(), key=lambda x: str(x[0])):
         print(f"    {code}  →  {count} requests")
-    if elapsed_ok:
+    if grand_elapsed:
         print()
         print(f"  Accepted (202) response times:")
-        print(f"    min  {min(elapsed_ok)}s")
-        print(f"    max  {max(elapsed_ok)}s")
-        print(f"    avg  {round(sum(elapsed_ok)/len(elapsed_ok), 3)}s")
+        print(f"    min  {min(grand_elapsed)}s")
+        print(f"    max  {max(grand_elapsed)}s")
+        print(f"    avg  {round(sum(grand_elapsed)/len(grand_elapsed), 3)}s")
     print("═" * 60)
-
-    # Optionally poll status for the first 5 accepted executions
-    accepted = [r for r in results if r["execution_id"]][:5]
-    if accepted:
-        print("\n⏳  Polling status for first 5 accepted executions (up to 30s)…\n")
-        token = tokens[0]
-        headers = {"Authorization": f"Bearer {token}"}
-        for r in accepted:
-            eid = r["execution_id"]
-            for _ in range(10):
-                time.sleep(3)
-                try:
-                    sr = requests.get(f"{BASE_URL}/api/executions/{eid}/status", headers=headers, timeout=10)
-                    data = sr.json()
-                    st = data.get("status", "?")
-                    print(f"  {eid}  →  {st}")
-                    if st not in ("PENDING", "RUNNING", "QUEUED"):
-                        break
-                except Exception as e:
-                    print(f"  {eid}  →  poll error: {e}")
-                    break
 
 
 if __name__ == "__main__":
     run_load_test()
-
-
-
-
-
-

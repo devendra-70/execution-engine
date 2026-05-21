@@ -25,15 +25,30 @@ CONCURRENCY       = 10    # parallel workers (also = number of virtual users)
 DELAY_BETWEEN_WAVES = 1   # seconds to wait between waves (0 = fire as fast as possible)
 PROBLEM_ID     = 3     # a valid problemId in your DB
 LANGUAGE       = "JAVA"
-MODE           = "run" # "run" = sample tests only (faster); "submit" = all tests
+MODE           = "submit" # "run" = sample tests only (faster); "submit" = all tests
 
 # A minimal Java solution — tweak to match problemId's expected output
 SOURCE_CODE = """
+import java.util.*;
+import java.util.stream.*;
 public class Solution {
     public static void main(String[] args) {
-        System.out.println("Hello, World!");
+        Scanner sc = new Scanner(System.in);
+        int n = Integer.parseInt(sc.nextLine().trim());
+        Map<String, Integer> scores = new LinkedHashMap<>();
+        for (int i = 0; i < n; i++) {
+            String[] parts = sc.nextLine().trim().split(" ");
+            scores.put(parts[0], Integer.parseInt(parts[1]));
+        }
+        scores.entrySet().stream()
+            .sorted(Comparator.comparing(Map.Entry<String, Integer>::getValue)
+                .reversed()
+                .thenComparing(Map.Entry::getKey))
+            .map(Map.Entry::getKey)
+            .forEach(System.out::println);
     }
 }
+
 """
 # ──────────────────────────────────────────────────────────────
 
@@ -104,6 +119,7 @@ def run_load_test():
         while True:
             wave += 1
             wave_results = []
+            wave_start = time.perf_counter()
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
                 futures = {pool.submit(submit, grand_total + i, tokens): i for i in range(BATCH_SIZE)}
@@ -114,15 +130,23 @@ def run_load_test():
                     mark = "✅" if status == 202 else ("⚠️  429" if status == 429 else f"❌  {status}")
                     print(f"  [wave {wave:>4} | #{grand_total + len(wave_results):>6}]  {mark}  {r['elapsed_s']}s  id={r['execution_id'] or r['error']}")
 
+            wave_time  = time.perf_counter() - wave_start
             grand_total += len(wave_results)
             for r in wave_results:
                 grand_codes[r["status_code"]] += 1
                 if r["status_code"] == 202:
                     grand_elapsed.append(r["elapsed_s"])
 
-            ok = sum(1 for r in wave_results if r["status_code"] == 202)
-            elapsed = round(time.perf_counter() - test_start, 1)
-            print(f"\n  ── wave {wave} done  |  accepted={ok}/{BATCH_SIZE}  total={grand_total}  elapsed={elapsed}s ──\n")
+            ok           = sum(1 for r in wave_results if r["status_code"] == 202)
+            wave_rps     = round(len(wave_results) / wave_time, 1)
+            elapsed      = round(time.perf_counter() - test_start, 1)
+            overall_rps  = round(grand_total / elapsed, 1) if elapsed > 0 else 0
+            print(f"\n  ── wave {wave} done in {round(wave_time,2)}s"
+                  f"  |  {wave_rps} req/s this wave"
+                  f"  |  {overall_rps} req/s overall"
+                  f"  |  accepted={ok}/{BATCH_SIZE}"
+                  f"  |  total={grand_total}"
+                  f"  |  elapsed={elapsed}s ──\n")
 
             if DELAY_BETWEEN_WAVES > 0:
                 time.sleep(DELAY_BETWEEN_WAVES)

@@ -138,6 +138,30 @@
       ],
       "fieldConfig": { "defaults": { "unit": "ms" } }
     },
+
+    {
+      "id": 19, "type": "timeseries", "gridPos": { "x": 0, "y": 48, "w": 12, "h": 8 },
+      "title": "WebSocket Push Rate (results delivered vs failed)",
+      "targets": [
+        { "expr": "rate(ws_push_sent_total{application=\"execution-engine\"}[1m])", "legendFormat": "sent (delivered)" },
+        { "expr": "rate(ws_push_failed_total{application=\"execution-engine\"}[1m])", "legendFormat": "failed (not delivered)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+
+    {
+      "id": 20, "type": "stat", "gridPos": { "x": 12, "y": 48, "w": 6, "h": 8 },
+      "title": "Total WS Results Sent",
+      "targets": [{ "expr": "ws_push_sent_total{application=\"execution-engine\"}", "legendFormat": "sent" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color":"green","value":0}] } } }
+    },
+
+    {
+      "id": 21, "type": "stat", "gridPos": { "x": 18, "y": 48, "w": 6, "h": 8 },
+      "title": "Total WS Push Failures",
+      "targets": [{ "expr": "ws_push_failed_total{application=\"execution-engine\"}", "legendFormat": "failed" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color":"green","value":0},{"color":"orange","value":1},{"color":"red","value":5}] } } }
+    },
     {
       "id": 9,  "type": "stat", "gridPos": { "x": 0,  "y": 48, "w": 6, "h": 4 },
       "title": "Total Submissions",

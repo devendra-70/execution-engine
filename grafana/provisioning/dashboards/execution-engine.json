@@ -1,0 +1,140 @@
+{
+  "title": "Execution Engine — Load Dashboard",
+  "uid": "exec-engine-load",
+  "schemaVersion": 38,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "title": "HTTP Request Rate (req/s)",
+      "targets": [{
+        "expr": "rate(http_server_requests_seconds_count{application=\"execution-engine\"}[1m])",
+        "legendFormat": "{{method}} {{uri}} {{status}}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "id": 2, "type": "timeseries", "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "title": "HTTP Response Time p95 (ms)",
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{application=\"execution-engine\"}[1m])) * 1000",
+        "legendFormat": "p95 {{uri}}"
+      },{
+        "expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{application=\"execution-engine\"}[1m])) * 1000",
+        "legendFormat": "p99 {{uri}}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "id": 3, "type": "timeseries", "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "title": "JVM Heap Memory Used",
+      "targets": [{
+        "expr": "jvm_memory_used_bytes{application=\"execution-engine\", area=\"heap\"}",
+        "legendFormat": "{{id}}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "id": 4, "type": "timeseries", "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "title": "JVM Threads",
+      "targets": [{
+        "expr": "jvm_threads_live_threads{application=\"execution-engine\"}",
+        "legendFormat": "live"
+      },{
+        "expr": "jvm_threads_daemon_threads{application=\"execution-engine\"}",
+        "legendFormat": "daemon"
+      },{
+        "expr": "jvm_threads_peak_threads{application=\"execution-engine\"}",
+        "legendFormat": "peak"
+      }]
+    },
+    {
+      "id": 5, "type": "timeseries", "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "title": "CPU Usage",
+      "targets": [{
+        "expr": "process_cpu_usage{application=\"execution-engine\"}",
+        "legendFormat": "process CPU"
+      },{
+        "expr": "system_cpu_usage{application=\"execution-engine\"}",
+        "legendFormat": "system CPU"
+      }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 } }
+    },
+    {
+      "id": 6, "type": "timeseries", "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "title": "Thread Pool (Executor)",
+      "targets": [{
+        "expr": "executor_active_threads{application=\"execution-engine\"}",
+        "legendFormat": "active {{name}}"
+      },{
+        "expr": "executor_queued_tasks{application=\"execution-engine\"}",
+        "legendFormat": "queued {{name}}"
+      },{
+        "expr": "executor_pool_size_threads{application=\"execution-engine\"}",
+        "legendFormat": "pool size {{name}}"
+      }]
+    },
+    {
+      "id": 7, "type": "timeseries", "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "title": "DB Connection Pool (HikariCP)",
+      "targets": [{
+        "expr": "hikaricp_connections_active{application=\"execution-engine\"}",
+        "legendFormat": "active"
+      },{
+        "expr": "hikaricp_connections_idle{application=\"execution-engine\"}",
+        "legendFormat": "idle"
+      },{
+        "expr": "hikaricp_connections_pending{application=\"execution-engine\"}",
+        "legendFormat": "pending"
+      }]
+    },
+    {
+      "id": 8, "type": "timeseries", "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "title": "Kafka Listener / Template Rate",
+      "targets": [{
+        "expr": "rate(spring_kafka_template_seconds_count{application=\"execution-engine\"}[1m])",
+        "legendFormat": "kafka send rate"
+      },{
+        "expr": "rate(spring_kafka_listener_seconds_count{application=\"execution-engine\"}[1m])",
+        "legendFormat": "kafka consume rate"
+      }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "id": 9, "type": "stat", "gridPos": { "x": 0, "y": 32, "w": 6, "h": 4 },
+      "title": "Total HTTP Requests",
+      "targets": [{
+        "expr": "sum(http_server_requests_seconds_count{application=\"execution-engine\"})",
+        "legendFormat": "total"
+      }]
+    },
+    {
+      "id": 10, "type": "stat", "gridPos": { "x": 6, "y": 32, "w": 6, "h": 4 },
+      "title": "Active HTTP Requests",
+      "targets": [{
+        "expr": "sum(http_server_requests_active_seconds_active_count{application=\"execution-engine\"})",
+        "legendFormat": "active"
+      }]
+    },
+    {
+      "id": 11, "type": "stat", "gridPos": { "x": 12, "y": 32, "w": 6, "h": 4 },
+      "title": "GC Overhead %",
+      "targets": [{
+        "expr": "jvm_gc_overhead_percent{application=\"execution-engine\"}",
+        "legendFormat": "GC %"
+      }],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 12, "type": "stat", "gridPos": { "x": 18, "y": 32, "w": 6, "h": 4 },
+      "title": "Uptime",
+      "targets": [{
+        "expr": "process_uptime_seconds{application=\"execution-engine\"}",
+        "legendFormat": "uptime"
+      }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    }
+  ]
+}
+

@@ -2,8 +2,8 @@
   "title": "Execution Engine — Load Dashboard",
   "uid": "exec-engine-load",
   "schemaVersion": 38,
-  "refresh": "5s",
-  "time": { "from": "now-15m", "to": "now" },
+  "refresh": "1s",
+  "time": { "from": "now-5m", "to": "now" },
   "panels": [
     {
       "id": 1, "type": "timeseries", "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },

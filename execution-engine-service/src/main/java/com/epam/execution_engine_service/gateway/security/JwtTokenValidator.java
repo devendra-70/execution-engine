@@ -40,7 +40,7 @@ public class JwtTokenValidator {
     public Optional<Long> extractUserId(String token) {
         return validateAndExtract(token).map(claims -> {
             Object raw = claims.get("userId");
-            if (raw instanceof Number) return ((Number) raw).longValue();
+            if (raw instanceof Number number) return number.longValue();
             return null;
         });
     }

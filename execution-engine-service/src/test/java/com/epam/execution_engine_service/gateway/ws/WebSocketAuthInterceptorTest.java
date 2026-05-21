@@ -2,8 +2,6 @@ package com.epam.execution_engine_service.gateway.ws;
 
 import io.jsonwebtoken.Claims;
 import com.epam.execution_engine_service.gateway.security.JwtTokenValidator;
-import java.util.HashMap;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

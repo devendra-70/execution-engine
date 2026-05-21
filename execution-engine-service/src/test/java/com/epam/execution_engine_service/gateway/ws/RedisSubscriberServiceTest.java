@@ -87,9 +87,9 @@ class RedisSubscriberServiceTest {
 
         // Then
         verify(messagingTemplate, times(1)).convertAndSendToUser(
-                eq("12345"),
-                eq("/queue/execution-results"),
-                eq(executionResultEvent)
+                "12345",
+                "/queue/execution-results",
+                executionResultEvent
         );
     }
 
@@ -139,14 +139,14 @@ class RedisSubscriberServiceTest {
 
         // Then
         verify(messagingTemplate).convertAndSendToUser(
-                eq("111"),
-                eq("/queue/execution-results"),
-                eq(user1Event)
+                "111",
+                "/queue/execution-results",
+                user1Event
         );
         verify(messagingTemplate).convertAndSendToUser(
-                eq("222"),
-                eq("/queue/execution-results"),
-                eq(user2Event)
+                "222",
+                "/queue/execution-results",
+                user2Event
         );
     }
 
@@ -305,9 +305,9 @@ class RedisSubscriberServiceTest {
 
         // Then
         verify(messagingTemplate, times(1)).convertAndSendToUser(
-                eq("12345"),
-                eq("/queue/execution-results"),
-                eq(executionResultEvent)
+                "12345",
+                "/queue/execution-results",
+                executionResultEvent
         );
     }
 

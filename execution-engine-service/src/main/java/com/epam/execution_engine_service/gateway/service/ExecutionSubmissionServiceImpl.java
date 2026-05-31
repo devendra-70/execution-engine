@@ -46,10 +46,22 @@ public class ExecutionSubmissionServiceImpl implements ExecutionSubmissionServic
                 .submittedAt(Instant.now())
                 .build();
 
-        kafkaTemplate.send(kafkaTopic, String.valueOf(userId), taskEvent);
+        kafkaTemplate.send(kafkaTopic, String.valueOf(userId), taskEvent)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish execution {} to Kafka topic {}: {}",
+                                executionId, kafkaTopic, ex.getMessage(), ex);
+                    } else {
+                        log.debug("Execution {} published to Kafka partition {} offset {}",
+                                executionId,
+                                result.getRecordMetadata().partition(),
+                                result.getRecordMetadata().offset());
+                    }
+                });
 
         log.info("Submitted execution {} for user {} / problem {}", executionId, userId, request.getProblemId());
         return executionId;
     }
 }
+
 

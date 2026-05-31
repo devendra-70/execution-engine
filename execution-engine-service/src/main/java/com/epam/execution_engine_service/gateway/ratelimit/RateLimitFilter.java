@@ -22,6 +22,9 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
 
+    /** URI of the submission endpoint that is subject to rate limiting. */
+    private static final String SUBMISSION_URI = "/api/executions";
+
     private final RateLimitService rateLimitService;
 
     @Override
@@ -29,7 +32,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         // Only rate-limit the submission endpoint
-        if (!"/api/executions".equals(request.getRequestURI())
+        if (!SUBMISSION_URI.equals(request.getRequestURI())
                 || !"POST".equals(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;

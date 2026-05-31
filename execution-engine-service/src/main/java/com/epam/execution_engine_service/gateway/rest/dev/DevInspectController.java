@@ -10,6 +10,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.*;
 
 /**
@@ -79,6 +81,7 @@ public class DevInspectController {
 
     /** GET /api/dev/inspect/db/{executionId}
      *  Returns the submission record + test results from PostgreSQL */
+    @Transactional(readOnly = true)
     @GetMapping("/db/{executionId}")
     public ResponseEntity<Map<String, Object>> dbSubmission(@PathVariable String executionId) {
         UUID id;
@@ -133,6 +136,7 @@ public class DevInspectController {
 
     /** GET /api/dev/inspect/db/recent?limit=10
      *  Returns the most recent N submissions */
+    @Transactional(readOnly = true)
     @GetMapping("/db/recent")
     public ResponseEntity<List<Map<String, Object>>> recentSubmissions(
             @RequestParam(defaultValue = "10") int limit) {

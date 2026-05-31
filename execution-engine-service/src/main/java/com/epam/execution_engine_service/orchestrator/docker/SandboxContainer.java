@@ -1,7 +1,6 @@
 package com.epam.execution_engine_service.orchestrator.docker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.dockerjava.api.DockerClient;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import com.epam.execution_engine_service.domain.TestCase;
@@ -14,25 +13,23 @@ import java.net.Socket;
 import java.util.List;
 
 /**
- * DIP: ObjectMapper is injected via constructor rather than created as a static field,
- * allowing the shared Spring-managed instance (with all modules registered) to be used.
+ * SRP: Communicates with the sandbox wrapper over TCP.
+ * DIP: ObjectMapper injected via constructor (no static field).
+ * Clean code: removed unused dockerClient field — SandboxContainer never calls the Docker API directly.
  */
 @Slf4j
 public class SandboxContainer {
 
     @Getter
     private final String containerId;
-    private final DockerClient dockerClient;
     private final String sandboxHost;
     @Getter
     private final int sandboxPort;
     private final ObjectMapper objectMapper;
     private boolean healthy = true;
 
-    public SandboxContainer(String containerId, DockerClient dockerClient,
-                            String sandboxHost, int sandboxPort, ObjectMapper objectMapper) {
+    public SandboxContainer(String containerId, String sandboxHost, int sandboxPort, ObjectMapper objectMapper) {
         this.containerId  = containerId;
-        this.dockerClient = dockerClient;
         this.sandboxHost  = sandboxHost;
         this.sandboxPort  = sandboxPort;
         this.objectMapper = objectMapper;

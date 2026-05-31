@@ -24,6 +24,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ExecutionOrchestrationService {
 
+    /** Named constant avoids magic-string comparison scattered across the codebase. */
+    private static final String RUN_MODE = "run";
+
     private final TestCaseProvider testCaseCacheService;
     private final ContainerPool containerPool;
     private final SubmissionPersistencePort persistenceService;
@@ -44,7 +47,7 @@ public class ExecutionOrchestrationService {
         log.info("Orchestrating execution {} for problem {}", taskEvent.getExecutionId(), taskEvent.getProblemId());
 
         // 1. Fetch test cases based on mode
-        boolean isRunMode = "run".equalsIgnoreCase(taskEvent.getMode());
+        boolean isRunMode = RUN_MODE.equalsIgnoreCase(taskEvent.getMode());
         List<TestCase> testCases = isRunMode
                 ? testCaseCacheService.getVisibleTestCases(taskEvent.getProblemId())
                 : testCaseCacheService.getTestCases(taskEvent.getProblemId());

@@ -29,7 +29,8 @@ public class KafkaConsumerConfig {
     @Bean
     public ConsumerFactory<String, ExecutionTaskEvent> consumerFactory() {
         JsonDeserializer<ExecutionTaskEvent> deserializer = new JsonDeserializer<>(ExecutionTaskEvent.class);
-        deserializer.addTrustedPackages("org.codeval.execution.domain");
+        // Fixed: was "org.codeval.execution.domain" — actual package is com.epam.execution_engine_service.domain
+        deserializer.addTrustedPackages("com.epam.execution_engine_service.domain");
         deserializer.setUseTypeHeaders(false);
 
         Map<String, Object> props = new HashMap<>();

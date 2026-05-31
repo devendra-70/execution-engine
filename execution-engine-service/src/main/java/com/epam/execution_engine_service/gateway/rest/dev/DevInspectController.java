@@ -2,15 +2,17 @@ package com.epam.execution_engine_service.gateway.rest.dev;
 
 import lombok.RequiredArgsConstructor;
 import com.epam.execution_engine_service.persistence.entity.SubmissionEntity;
-import com.epam.execution_engine_service.persistence.entity.SubmissionTestResultEntity;
 import com.epam.execution_engine_service.persistence.repository.SubmissionRepository;
 import org.springframework.context.annotation.Profile;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 /**
  * DEV-ONLY — exposes Redis KV and DB submission data for local testing visibility.
@@ -50,7 +52,7 @@ public class DevInspectController {
                     FIELD_TTL_SECONDS, -2
             ));
         }
-        Long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+        Long ttl = redisTemplate.getExpire(key, java.util.concurrent.TimeUnit.SECONDS);
         return ResponseEntity.ok(Map.of(
                 "key", key,
                 "exists", true,
@@ -69,7 +71,7 @@ public class DevInspectController {
         if (keys != null) {
             for (String k : keys) {
                 String val = redisTemplate.opsForValue().get(k);
-                Long ttl = redisTemplate.getExpire(k, TimeUnit.SECONDS);
+                Long ttl = redisTemplate.getExpire(k, java.util.concurrent.TimeUnit.SECONDS);
                 entries.add(Map.of(
                         "key", k,
                         FIELD_VALUE, val != null ? val : "null",
@@ -86,6 +88,7 @@ public class DevInspectController {
 
     /** GET /api/dev/inspect/db/{executionId}
      *  Returns the submission record + test results from PostgreSQL */
+    @Transactional(readOnly = true)
     @GetMapping("/db/{executionId}")
     public ResponseEntity<Map<String, Object>> dbSubmission(@PathVariable String executionId) {
         UUID id;
@@ -140,13 +143,14 @@ public class DevInspectController {
 
     /** GET /api/dev/inspect/db/recent?limit=10
      *  Returns the most recent N submissions */
+    @Transactional(readOnly = true)
     @GetMapping("/db/recent")
     public ResponseEntity<List<Map<String, Object>>> recentSubmissions(
             @RequestParam(defaultValue = "10") int limit) {
 
-        List<Map<String, Object>> rows = submissionRepository.findAll().stream()
-                .sorted(Comparator.comparing(SubmissionEntity::getSubmittedAt).reversed())
-                .limit(limit)
+        List<Map<String, Object>> rows = submissionRepository
+                .findBy(PageRequest.of(0, limit, Sort.by("submittedAt").descending()))
+                .stream()
                 .map(s -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put(FIELD_EXECUTION_ID, s.getId());

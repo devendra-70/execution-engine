@@ -16,13 +16,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Intercepts STOMP CONNECT frames and authenticates the user via JWT.
- * This sets the session's Principal so that convertAndSendToUser() can route
- * messages to the correct WebSocket session.
- *
- * Client should send:
- *   CONNECT
- *   Authorization: Bearer <jwt>
+ * DRY/SRP: User-ID extraction from claims is delegated to
+ * {@link JwtTokenValidator#extractUserId(String)} — no duplicated claim-parsing logic.
  */
 @Slf4j
 @Component
@@ -39,18 +34,13 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
             String token = extractToken(accessor);
             if (token != null) {
-                jwtTokenValidator.validateAndExtract(token).ifPresentOrElse(claims -> {
-                    Object userIdRaw = claims.get("userId");
-                    String principal = (userIdRaw instanceof Number number)
-                            ? String.valueOf(number.longValue())
-                            : claims.getSubject();
-                    if (principal != null) {
-                        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                                principal, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
-                        );
-                        accessor.setUser(auth);
-                        log.debug("WebSocket CONNECT authenticated for userId={}", principal);
-                    }
+                jwtTokenValidator.extractUserId(token).ifPresentOrElse(userId -> {
+                    String principal = String.valueOf(userId);
+                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                            principal, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                    );
+                    accessor.setUser(auth);
+                    log.debug("WebSocket CONNECT authenticated for userId={}", principal);
                 }, () -> log.warn("WebSocket CONNECT received invalid JWT"));
             } else {
                 log.warn("WebSocket CONNECT received without token — user destination routing disabled");
@@ -60,12 +50,10 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
     }
 
     private String extractToken(StompHeaderAccessor accessor) {
-        // Try Authorization header in STOMP frame
         String auth = accessor.getFirstNativeHeader("Authorization");
         if (auth != null && auth.startsWith("Bearer ")) {
             return auth.substring(7);
         }
-        // Try token header directly
         String token = accessor.getFirstNativeHeader("token");
         if (token != null && !token.isBlank()) {
             return token;
@@ -73,5 +61,3 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         return null;
     }
 }
-
-

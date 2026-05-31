@@ -46,6 +46,7 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    open-in-view: false                     # disable OSIV; explicit @Transactional controls session scope
     defer-datasource-initialization: true  # run data.sql AFTER Hibernate creates tables
     hibernate:
       ddl-auto: ${SPRING_JPA_DDL_AUTO:update}
@@ -75,10 +76,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
+  metrics:
+    tags:
+      application: execution-engine
 
 springdoc:
   api-docs:
@@ -92,6 +96,6 @@ springdoc:
 
 logging:
   level:
-    org.codeval: ${LOG_LEVEL_APP:DEBUG}
+    com.epam.execution_engine_service: ${LOG_LEVEL_APP:DEBUG}
     org.springframework.kafka: ${LOG_LEVEL_KAFKA:INFO}
     org.springframework.security: ${LOG_LEVEL_SECURITY:INFO}

@@ -13,7 +13,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TestCaseCacheService {
+public class TestCaseCacheService implements TestCaseProvider {
 
     private final TestCaseRepository testCaseRepository;
 

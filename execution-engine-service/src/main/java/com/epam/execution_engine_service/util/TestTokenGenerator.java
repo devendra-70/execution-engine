@@ -10,7 +10,7 @@ import java.util.Date;
 import java.util.Map;
 
 /**
- * Run with: mvnw exec:java -pl execution-engine-app -Dexec.mainClass=org.codeval.execution.util.TestTokenGenerator
+ * Run with: mvnw exec:java -pl execution-engine-service -Dexec.mainClass=com.epam.execution_engine_service.util.TestTokenGenerator
  */
 @Slf4j
 public class TestTokenGenerator {

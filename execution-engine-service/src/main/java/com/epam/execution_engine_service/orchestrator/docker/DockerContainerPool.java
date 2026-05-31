@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -96,6 +97,13 @@ public class DockerContainerPool implements ContainerPool {
         Ports portBindings = new Ports();
         portBindings.bind(containerPort, Ports.Binding.bindPort(0));
 
+        // Labels: override com.docker.compose.project so Rancher Desktop / Docker Desktop
+        // shows sandbox containers in their own standalone group, not under execution-engine-service.
+        Map<String, String> labels = Map.of(
+                "com.docker.compose.project", "codeval-sandboxes",
+                "codeval.role", "sandbox"
+        );
+
         CreateContainerResponse created = dockerClient.createContainerCmd(sandboxImage)
                 .withExposedPorts(containerPort)
                 .withHostConfig(HostConfig.newHostConfig()
@@ -104,6 +112,7 @@ public class DockerContainerPool implements ContainerPool {
                         .withMemorySwap(memoryLimitMb * 1024 * 1024)
                         .withAutoRemove(false))
                 .withEnv("SANDBOX_PORT=" + SANDBOX_INNER_PORT)
+                .withLabels(labels)
                 .exec();
 
         String id = created.getId();

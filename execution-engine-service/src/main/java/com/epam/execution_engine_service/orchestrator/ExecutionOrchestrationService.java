@@ -1,12 +1,12 @@
 package com.epam.execution_engine_service.orchestrator;
 
 import com.epam.execution_engine_service.domain.*;
-import com.epam.execution_engine_service.orchestrator.cache.TestCaseCacheService;
+import com.epam.execution_engine_service.orchestrator.cache.TestCaseProvider;
 import com.epam.execution_engine_service.orchestrator.docker.ContainerPool;
 import com.epam.execution_engine_service.orchestrator.publisher.ExecutionResultPublisher;
 import com.epam.execution_engine_service.orchestrator.strategy.CodeExecutionStrategy;
 import com.epam.execution_engine_service.orchestrator.verdict.VerdictAggregator;
-import com.epam.execution_engine_service.persistence.service.PersistenceService;
+import com.epam.execution_engine_service.persistence.service.SubmissionPersistencePort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,9 +24,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ExecutionOrchestrationService {
 
-    private final TestCaseCacheService testCaseCacheService;
+    private final TestCaseProvider testCaseCacheService;
     private final ContainerPool containerPool;
-    private final PersistenceService persistenceService;
+    private final SubmissionPersistencePort persistenceService;
     private final ExecutionResultPublisher resultPublisher;
     private final VerdictAggregator verdictAggregator;
     /** All {@link CodeExecutionStrategy} beans injected in @Order-defined priority. */
@@ -90,3 +90,4 @@ public class ExecutionOrchestrationService {
         log.info("Orchestration complete for executionId={}, verdict={}", taskEvent.getExecutionId(), finalVerdict);
     }
 }
+

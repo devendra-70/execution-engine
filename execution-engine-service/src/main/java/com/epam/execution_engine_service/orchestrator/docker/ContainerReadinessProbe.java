@@ -47,5 +47,21 @@ public class ContainerReadinessProbe {
                 "Sandbox " + containerId + " did not become ready within " +
                 (READY_POLL_MS * READY_MAX_ATTEMPTS / 1000) + "s");
     }
+
+    /**
+     * Single-attempt TCP liveness check — no retries.
+     * Used by the pool to verify a container is still alive before/after use.
+     *
+     * @return {@code true} if the TCP handshake succeeds within {@code PING_TIMEOUT_MS}
+     */
+    public boolean isAlive(int hostPort) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new java.net.InetSocketAddress(sandboxHost, hostPort), PING_TIMEOUT_MS);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }
+
 

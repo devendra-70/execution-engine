@@ -1,6 +1,5 @@
 package com.epam.execution_engine_service.gateway.security;
 
-import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,8 +14,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 
+/**
+ * DRY/SRP: User-ID extraction from claims is delegated to
+ * {@link JwtTokenValidator#extractUserId(String)} — no duplicated claim-parsing logic.
+ */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -29,23 +31,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String token = extractToken(request);
         if (token != null) {
-            Optional<Claims> claims = jwtTokenValidator.validateAndExtract(token);
-            claims.ifPresent(c -> {
-                // JJWT deserialises JSON numbers as Integer for small values — always use Number
-                Object userIdRaw = c.get("userId");
-                String principal;
-                if (userIdRaw instanceof Number) {
-                    principal = String.valueOf(((Number) userIdRaw).longValue());
-                } else {
-                    // fallback: sub claim
-                    principal = c.getSubject();
-                }
-                if (principal != null) {
-                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                            principal, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
-                    );
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                }
+            jwtTokenValidator.extractUserId(token).ifPresent(userId -> {
+                String principal = String.valueOf(userId);
+                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                        principal, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                );
+                SecurityContextHolder.getContext().setAuthentication(auth);
             });
         }
         filterChain.doFilter(request, response);

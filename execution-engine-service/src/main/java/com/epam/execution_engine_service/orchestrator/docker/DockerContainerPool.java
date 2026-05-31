@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -51,7 +50,6 @@ public class DockerContainerPool implements ContainerPool {
     private String sandboxHost;
 
     private static final int SANDBOX_INNER_PORT = 5000;
-    private static final int PING_TIMEOUT_MS    = 2_000;
 
     private DockerClient dockerClient;
 
@@ -198,13 +196,9 @@ public class DockerContainerPool implements ContainerPool {
     // Internal helpers
     // ─────────────────────────────────────────────────────────────────────────
 
+    /** Delegates liveness check to readinessProbe (SRP — no duplicate TCP socket logic). */
     private boolean isAlive(SandboxContainer c) {
-        try (Socket s = new Socket()) {
-            s.connect(new java.net.InetSocketAddress(sandboxHost, c.getSandboxPort()), PING_TIMEOUT_MS);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        return readinessProbe.isAlive(c.getSandboxPort());
     }
 
     private void discardAndReplace(SandboxContainer dead) {

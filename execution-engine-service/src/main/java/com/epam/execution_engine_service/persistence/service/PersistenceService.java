@@ -16,7 +16,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PersistenceService {
+public class PersistenceService implements SubmissionPersistencePort {
 
     private final SubmissionRepository submissionRepository;
 

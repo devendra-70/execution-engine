@@ -6,7 +6,6 @@ import com.epam.execution_engine_service.orchestrator.docker.ContainerPool;
 import com.epam.execution_engine_service.orchestrator.docker.SandboxContainer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -24,9 +23,6 @@ import java.util.List;
 public class DockerExecutionStrategy implements CodeExecutionStrategy {
 
     private final ContainerPool containerPool;
-
-    @Value("${app.execution.timeout-ms:3000}")
-    private long timeoutMs;
 
     @Override
     public boolean supports(boolean dockerAvailable) {
@@ -47,4 +43,6 @@ public class DockerExecutionStrategy implements CodeExecutionStrategy {
         }
     }
 }
+
+
 

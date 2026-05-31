@@ -2,6 +2,7 @@ package com.epam.execution_engine_service.domain;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Data
@@ -12,8 +13,14 @@ public class ExecutionRequest {
     @NotBlank
     private String language;
 
+    /** Only "run" or "submit" are valid values (case-insensitive). */
     @NotBlank
-    private String mode; // "run" or "submit"
+    @Pattern(
+        regexp = "run|submit",
+        flags  = Pattern.Flag.CASE_INSENSITIVE,
+        message = "mode must be 'run' or 'submit'"
+    )
+    private String mode;
 
     @NotBlank
     private String sourceCode;

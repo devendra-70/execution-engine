@@ -1,7 +1,6 @@
 package com.epam.execution_engine_service.orchestrator.docker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.dockerjava.api.DockerClient;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +13,10 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.List;
 
+/**
+ * DIP: ObjectMapper is injected via constructor rather than created as a static field,
+ * allowing the shared Spring-managed instance (with all modules registered) to be used.
+ */
 @Slf4j
 public class SandboxContainer {
 
@@ -23,40 +26,36 @@ public class SandboxContainer {
     private final String sandboxHost;
     @Getter
     private final int sandboxPort;
+    private final ObjectMapper objectMapper;
     private boolean healthy = true;
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .registerModule(new JavaTimeModule());
-
     public SandboxContainer(String containerId, DockerClient dockerClient,
-                            String sandboxHost, int sandboxPort) {
-        this.containerId = containerId;
+                            String sandboxHost, int sandboxPort, ObjectMapper objectMapper) {
+        this.containerId  = containerId;
         this.dockerClient = dockerClient;
-        this.sandboxHost = sandboxHost;
-        this.sandboxPort = sandboxPort;
+        this.sandboxHost  = sandboxHost;
+        this.sandboxPort  = sandboxPort;
+        this.objectMapper = objectMapper;
     }
 
     /**
      * Execute source code against test cases via TCP socket to the sandbox wrapper.
-     * The sandbox compiles once, then runs each test case with a fresh ClassLoader.
      */
     public List<TestCaseResultEvent> execute(String sourceCode, List<TestCase> testCases, long timeoutMs) {
         try {
             SandboxRequest request = new SandboxRequest(sourceCode, testCases, timeoutMs);
-            byte[] requestBytes = MAPPER.writeValueAsBytes(request);
+            byte[] requestBytes = objectMapper.writeValueAsBytes(request);
 
             try (Socket socket = new Socket(sandboxHost, sandboxPort)) {
                 socket.setSoTimeout((int) (timeoutMs + 10_000));
 
-                // Send request, signal EOF
                 OutputStream out = socket.getOutputStream();
                 out.write(requestBytes);
                 out.flush();
                 socket.shutdownOutput();
 
-                // Read response until EOF
                 byte[] responseBytes = socket.getInputStream().readAllBytes();
-                SandboxResponse response = MAPPER.readValue(responseBytes, SandboxResponse.class);
+                SandboxResponse response = objectMapper.readValue(responseBytes, SandboxResponse.class);
                 return response.results();
             }
         } catch (Exception e) {
@@ -83,4 +82,3 @@ public class SandboxContainer {
     public record SandboxRequest(String sourceCode, List<TestCase> testCases, long timeoutMs) {}
     public record SandboxResponse(List<TestCaseResultEvent> results) {}
 }
-

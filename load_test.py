@@ -6,28 +6,32 @@ Usage:
     python load_test.py
 
 Runs in continuous waves until you press Ctrl+C.
+Tracks final verdicts (ACCEPTED / WRONG_ANSWER / etc) via status polling.
 Tokens are auto-fetched from GET /api/dev/token?userId=<N>
-No manual JWT setup needed — just make sure the app is running.
 """
 
 import concurrent.futures
+import threading
 import time
+import queue
 import requests
-import signal
-import sys
+import subprocess
 from collections import Counter
 
 # ─────────────────────────── CONFIG ───────────────────────────
-BASE_URL          = "http://localhost:8080"
+BASE_URL             = "http://localhost:8080"
 
-BATCH_SIZE        = 20    # requests fired per wave
-CONCURRENCY       = 10    # parallel workers (also = number of virtual users)
-DELAY_BETWEEN_WAVES = 1   # seconds to wait between waves (0 = fire as fast as possible)
-PROBLEM_ID     = 3     # a valid problemId in your DB
-LANGUAGE       = "JAVA"
-MODE           = "submit" # "run" = sample tests only (faster); "submit" = all tests
+BATCH_SIZE           = 20   # requests fired per wave  (30 req/s burst)
+CONCURRENCY          = 20   # parallel workers (= number of virtual users)
+DELAY_BETWEEN_WAVES  = 1     # 1s pause between waves → ~30 req/s sustained burst rate
+POLL_CONTAINER_TRACE = True  # show which sandbox container handled each execution
+RESULT_POLL_WORKERS  = 10    # background threads polling final verdicts
+RESULT_POLL_TIMEOUT  = 30    # max seconds to wait for a verdict before giving up
 
-# A minimal Java solution — tweak to match problemId's expected output
+PROBLEM_ID = 3
+LANGUAGE   = "JAVA"
+MODE       = "submit"  # "run" = sample tests only; "submit" = all test cases
+
 SOURCE_CODE = """
 import java.util.*;
 import java.util.stream.*;
@@ -48,63 +52,126 @@ public class Solution {
             .forEach(System.out::println);
     }
 }
-
 """
 # ──────────────────────────────────────────────────────────────
 
 
-def fetch_tokens(n: int) -> list[str]:
+# ── Shared verdict tracking (thread-safe) ──────────────────────
+verdict_counter  = Counter()
+verdict_lock     = threading.Lock()
+result_queue     = queue.Queue()   # (execution_id, token) tuples to resolve
+
+
+def poll_result_worker():
     """
-    Auto-fetch N JWT tokens from the dev endpoint.
-    Each token belongs to a different userId (1..N) so that
-    the 5 req/min per-user rate-limit is spread across all users.
+    Background worker: drains result_queue, polls status endpoint until
+    COMPLETED/FAILED, then records the final verdict.
     """
-    print(f"🔑  Fetching {n} dev tokens from {BASE_URL}/api/dev/token …")
+    while True:
+        item = result_queue.get()
+        if item is None:
+            break
+        execution_id, token = item
+        headers = {"Authorization": f"Bearer {token}"}
+        deadline = time.perf_counter() + RESULT_POLL_TIMEOUT
+        verdict = "TIMEOUT"
+        while time.perf_counter() < deadline:
+            try:
+                r = requests.get(
+                    f"{BASE_URL}/api/executions/{execution_id}/status",
+                    headers=headers, timeout=5
+                )
+                if r.ok:
+                    data = r.json()
+                    status = data.get("status", "")
+                    if status in ("COMPLETED", "FAILED"):
+                        verdict = data.get("verdict") or status
+                        score   = data.get("score", "?")
+                        rt_ms   = data.get("totalRuntimeMs", "?")
+                        mark    = "[PASS]" if verdict == "ACCEPTED" else "[FAIL]"
+                        print(f"  {mark}  {execution_id[:8]}  verdict={verdict}  score={score}  runtime={rt_ms}ms")
+                        break
+                    elif status == "PROCESSING":
+                        time.sleep(0.5)
+                        continue
+                time.sleep(1)
+            except Exception:
+                time.sleep(1)
+        with verdict_lock:
+            verdict_counter[verdict] += 1
+        result_queue.task_done()
+
+
+def trace_containers_from_logs(execution_ids: list):
+    try:
+        result = subprocess.run(
+            ["docker", "logs", "--tail", "1000", "codeval-execution-engine"],
+            capture_output=True, text=True, timeout=5
+        )
+        logs = result.stdout + result.stderr
+        print("  [Container trace]")
+        found = 0
+        for eid in execution_ids:
+            for line in logs.splitlines():
+                if "Acquired container" in line and eid in line:
+                    parts = line.split("Acquired container ")
+                    if len(parts) > 1:
+                        cid = parts[1].split(" ")[0][:12]
+                        print(f"    {eid[:8]}  ->  container {cid}")
+                        found += 1
+                        break
+        if found == 0:
+            print("    (executions still queued in Kafka)")
+    except Exception as e:
+        print(f"    (container trace unavailable: {e})")
+
+
+def fetch_tokens(n: int) -> list:
+    print(f"Fetching {n} dev tokens from {BASE_URL}/api/dev/token ...")
     tokens = []
     for user_id in range(1, n + 1):
         resp = requests.get(f"{BASE_URL}/api/dev/token", params={"userId": user_id}, timeout=10)
         resp.raise_for_status()
         token = resp.json().get("token") or resp.text.strip().strip('"')
         tokens.append(token)
-    print(f"   ✅  Got {len(tokens)} tokens\n")
+    print(f"   Got {len(tokens)} tokens\n")
     return tokens
 
 
-def submit(task_id: int, tokens: list[str]) -> dict:
+def submit(task_id: int, tokens: list) -> dict:
     token = tokens[task_id % len(tokens)]
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "problemId": PROBLEM_ID,
-        "language": LANGUAGE,
-        "mode": MODE,
-        "sourceCode": SOURCE_CODE,
-    }
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    payload = {"problemId": PROBLEM_ID, "language": LANGUAGE, "mode": MODE, "sourceCode": SOURCE_CODE}
     t0 = time.perf_counter()
     try:
         resp = requests.post(f"{BASE_URL}/api/executions", json=payload, headers=headers, timeout=30)
         elapsed = time.perf_counter() - t0
+        eid = resp.json().get("executionId") if resp.ok else None
+        # Queue for result polling
+        if eid:
+            result_queue.put((eid, token))
         return {
-            "task_id": task_id,
-            "status_code": resp.status_code,
-            "elapsed_s": round(elapsed, 3),
-            "execution_id": resp.json().get("executionId") if resp.ok else None,
+            "task_id": task_id, "status_code": resp.status_code,
+            "elapsed_s": round(elapsed, 3), "execution_id": eid,
             "error": None if resp.ok else resp.text[:200],
         }
     except Exception as exc:
         return {
-            "task_id": task_id,
-            "status_code": None,
+            "task_id": task_id, "status_code": None,
             "elapsed_s": round(time.perf_counter() - t0, 3),
-            "execution_id": None,
-            "error": str(exc),
+            "execution_id": None, "error": str(exc),
         }
 
 
 def run_load_test():
     tokens = fetch_tokens(CONCURRENCY)
+
+    # Start background result-polling threads
+    poll_threads = []
+    for _ in range(RESULT_POLL_WORKERS):
+        t = threading.Thread(target=poll_result_worker, daemon=True)
+        t.start()
+        poll_threads.append(t)
 
     grand_total   = 0
     grand_codes   = Counter()
@@ -112,8 +179,8 @@ def run_load_test():
     wave          = 0
     test_start    = time.perf_counter()
 
-    print(f"\n🚀  Continuous load test  |  batch={BATCH_SIZE}  concurrency={CONCURRENCY}")
-    print("    Press Ctrl+C to stop and see the final summary.\n")
+    print(f"\nContinuous load test  |  batch={BATCH_SIZE}  concurrency={CONCURRENCY}  result_poll_workers={RESULT_POLL_WORKERS}")
+    print("Press Ctrl+C to stop.\n")
 
     try:
         while True:
@@ -127,26 +194,35 @@ def run_load_test():
                     r = future.result()
                     wave_results.append(r)
                     status = r["status_code"]
-                    mark = "✅" if status == 202 else ("⚠️  429" if status == 429 else f"❌  {status}")
-                    print(f"  [wave {wave:>4} | #{grand_total + len(wave_results):>6}]  {mark}  {r['elapsed_s']}s  id={r['execution_id'] or r['error']}")
+                    mark = "[202]" if status == 202 else (f"[429]" if status == 429 else f"[{status}]")
+                    print(f"  {mark}  {r['elapsed_s']}s  id={r['execution_id'] or r['error']}")
 
-            wave_time  = time.perf_counter() - wave_start
+            wave_time = time.perf_counter() - wave_start
             grand_total += len(wave_results)
             for r in wave_results:
                 grand_codes[r["status_code"]] += 1
                 if r["status_code"] == 202:
                     grand_elapsed.append(r["elapsed_s"])
 
-            ok           = sum(1 for r in wave_results if r["status_code"] == 202)
-            wave_rps     = round(len(wave_results) / wave_time, 1)
-            elapsed      = round(time.perf_counter() - test_start, 1)
-            overall_rps  = round(grand_total / elapsed, 1) if elapsed > 0 else 0
-            print(f"\n  ── wave {wave} done in {round(wave_time,2)}s"
-                  f"  |  {wave_rps} req/s this wave"
-                  f"  |  {overall_rps} req/s overall"
-                  f"  |  accepted={ok}/{BATCH_SIZE}"
-                  f"  |  total={grand_total}"
-                  f"  |  elapsed={elapsed}s ──\n")
+            ok          = sum(1 for r in wave_results if r["status_code"] == 202)
+            wave_rps    = round(len(wave_results) / wave_time, 1)
+            elapsed     = round(time.perf_counter() - test_start, 1)
+            overall_rps = round(grand_total / elapsed, 1) if elapsed > 0 else 0
+
+            with verdict_lock:
+                vc = dict(verdict_counter)
+            verdict_summary = "  ".join(f"{k}={v}" for k, v in sorted(vc.items())) or "pending..."
+
+            print(f"\n  -- wave {wave} done in {round(wave_time,2)}s"
+                  f"  |  {wave_rps} req/s this wave  |  {overall_rps} req/s overall"
+                  f"  |  accepted={ok}/{BATCH_SIZE}  |  total={grand_total}")
+            print(f"     verdicts so far: {verdict_summary}")
+            print(f"     queue pending:   {result_queue.qsize()} executions awaiting result\n")
+
+            if POLL_CONTAINER_TRACE and wave % 2 == 0:
+                accepted_ids = [r["execution_id"] for r in wave_results if r["execution_id"]][:5]
+                if accepted_ids:
+                    trace_containers_from_logs(accepted_ids)
 
             if DELAY_BETWEEN_WAVES > 0:
                 time.sleep(DELAY_BETWEEN_WAVES)
@@ -154,27 +230,50 @@ def run_load_test():
     except KeyboardInterrupt:
         pass
 
+    # Drain remaining results (up to 30s)
+    print("\nWaiting for remaining results to resolve (up to 30s)...")
+    try:
+        result_queue.join()
+    except Exception:
+        pass
+
+    # Stop poll workers
+    for _ in poll_threads:
+        result_queue.put(None)
+
     # ── Final Summary ──
     total_time = round(time.perf_counter() - test_start, 2)
-    print("\n" + "═" * 60)
-    print("📊  FINAL RESULTS  (stopped by Ctrl+C)")
-    print("═" * 60)
+    with verdict_lock:
+        final_verdicts = dict(verdict_counter)
+
+    print("\n" + "=" * 65)
+    print("FINAL RESULTS  (Ctrl+C received)")
+    print("=" * 65)
     print(f"  Waves completed  : {wave}")
     print(f"  Total requests   : {grand_total}")
     print(f"  Concurrency      : {CONCURRENCY}")
     print(f"  Wall-clock time  : {total_time}s")
     print(f"  Throughput       : {round(grand_total / total_time, 1)} req/s")
     print()
-    print("  HTTP status breakdown:")
+    print("  HTTP status breakdown (submit response):")
     for code, count in sorted(grand_codes.items(), key=lambda x: str(x[0])):
-        print(f"    {code}  →  {count} requests")
+        print(f"    {code}  ->  {count} requests")
     if grand_elapsed:
         print()
-        print(f"  Accepted (202) response times:")
+        print(f"  Submit response times (202 only):")
         print(f"    min  {min(grand_elapsed)}s")
         print(f"    max  {max(grand_elapsed)}s")
         print(f"    avg  {round(sum(grand_elapsed)/len(grand_elapsed), 3)}s")
-    print("═" * 60)
+    print()
+    print("  Execution verdicts (actual results):")
+    total_resolved = sum(final_verdicts.values())
+    for verdict, count in sorted(final_verdicts.items(), key=lambda x: -x[1]):
+        pct = round(count * 100 / total_resolved, 1) if total_resolved else 0
+        print(f"    {verdict:<25} {count:>5}  ({pct}%)")
+    unresolved = grand_total - total_resolved
+    if unresolved > 0:
+        print(f"    {'UNRESOLVED (no result yet)':<25} {unresolved:>5}")
+    print("=" * 65)
 
 
 if __name__ == "__main__":

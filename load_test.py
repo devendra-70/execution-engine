@@ -21,8 +21,8 @@ from collections import Counter
 # ─────────────────────────── CONFIG ───────────────────────────
 BASE_URL             = "http://localhost:8080"
 
-BATCH_SIZE           = 20   # requests fired per wave  (30 req/s burst)
-CONCURRENCY          = 20   # parallel workers (= number of virtual users)
+BATCH_SIZE           = 50   # requests fired per wave  (30 req/s burst)
+CONCURRENCY          = 50   # parallel workers (= number of virtual users)
 DELAY_BETWEEN_WAVES  = 1     # 1s pause between waves → ~30 req/s sustained burst rate
 POLL_CONTAINER_TRACE = True  # show which sandbox container handled each execution
 RESULT_POLL_WORKERS  = 10    # background threads polling final verdicts
@@ -64,8 +64,9 @@ result_queue     = queue.Queue()   # (execution_id, token) tuples to resolve
 
 def poll_result_worker():
     """
-    Background worker: drains result_queue, polls status endpoint until
-    COMPLETED/FAILED, then records the final verdict.
+    Background worker: polls /api/executions/{id}/status until terminal state.
+    When COMPLETED the endpoint now returns verdict + score + totalRuntimeMs directly
+    from the Redis KV (same data pushed via WebSocket), so no second DB call needed.
     """
     while True:
         item = result_queue.get()
@@ -75,6 +76,7 @@ def poll_result_worker():
         headers = {"Authorization": f"Bearer {token}"}
         deadline = time.perf_counter() + RESULT_POLL_TIMEOUT
         verdict = "TIMEOUT"
+
         while time.perf_counter() < deadline:
             try:
                 r = requests.get(
@@ -82,21 +84,21 @@ def poll_result_worker():
                     headers=headers, timeout=5
                 )
                 if r.ok:
-                    data = r.json()
+                    data   = r.json()
                     status = data.get("status", "")
                     if status in ("COMPLETED", "FAILED"):
                         verdict = data.get("verdict") or status
                         score   = data.get("score", "?")
                         rt_ms   = data.get("totalRuntimeMs", "?")
-                        mark    = "[PASS]" if verdict == "ACCEPTED" else "[FAIL]"
-                        print(f"  {mark}  {execution_id[:8]}  verdict={verdict}  score={score}  runtime={rt_ms}ms")
+                        mark    = "✔" if verdict == "ACCEPTED" else "✘"
+                        print(f"  {mark} {execution_id[:8]}  {verdict:<25}  score={score}  {rt_ms}ms")
                         break
-                    elif status == "PROCESSING":
-                        time.sleep(0.5)
-                        continue
-                time.sleep(1)
+                time.sleep(0.5)
             except Exception:
                 time.sleep(1)
+        else:
+            print(f"  ✘ {execution_id[:8]}  TIMEOUT  (no result in {RESULT_POLL_TIMEOUT}s)")
+
         with verdict_lock:
             verdict_counter[verdict] += 1
         result_queue.task_done()

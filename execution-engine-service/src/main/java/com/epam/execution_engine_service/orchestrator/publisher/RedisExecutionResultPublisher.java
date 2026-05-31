@@ -36,10 +36,18 @@ public class RedisExecutionResultPublisher implements ExecutionResultPublisher {
 
     @Override
     public void publishResult(ExecutionResultEvent resultEvent) throws Exception {
-        // 1. Update Redis KV to COMPLETED
-        publishStatus(resultEvent.getExecutionId(), ExecutionStatus.COMPLETED);
+        // 1. Store a rich summary in Redis KV so the REST status endpoint exposes
+        //    verdict + score + runtime — matching exactly what is pushed via WebSocket.
+        String summaryJson = objectMapper.writeValueAsString(java.util.Map.of(
+                "status",         ExecutionStatus.COMPLETED.name(),
+                "verdict",        resultEvent.getVerdict().name(),
+                "score",          resultEvent.getScore(),
+                "totalRuntimeMs", resultEvent.getTotalRuntimeMs()
+        ));
+        String key = "execution:status:" + resultEvent.getExecutionId();
+        redisTemplate.opsForValue().set(key, summaryJson, java.time.Duration.ofSeconds(statusTtlSeconds));
 
-        // 2. Broadcast via Pub/Sub so WebSocket layer delivers the full result
+        // 2. Broadcast full result via Pub/Sub so WebSocket layer delivers it to clients
         String resultJson = objectMapper.writeValueAsString(resultEvent);
         redisTemplate.convertAndSend("execution-completed", resultJson);
         log.debug("[Publisher] Result published for executionId={}", resultEvent.getExecutionId());

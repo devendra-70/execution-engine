@@ -174,8 +174,8 @@
         &#9679; Polling every 1s… <span id="pollCount">0</span> checks
       </div>
       <table class="kv-table" id="redisTable">
-        <thead><tr><th>Key</th><th>Value</th><th>TTL (s)</th></tr></thead>
-        <tbody id="redisTbody"><tr><td colspan="3" class="dim">— not checked yet —</td></tr></tbody>
+        <thead><tr><th>Key</th><th>Status</th><th>Verdict</th><th>Score</th><th>Runtime</th><th>TTL (s)</th></tr></thead>
+        <tbody id="redisTbody"><tr><td colspan="6" class="dim">— not checked yet —</td></tr></tbody>
       </table>
 
       <hr>
@@ -379,17 +379,29 @@ function startRestPoll() {
     try {
       const res  = await fetch(getBase() + '/api/dev/inspect/redis/' + eid);
       const data = await res.json();
-      slog('[REST Poll #' + restPollChecks + '] Redis → ' + data.value + '  TTL=' + data.ttlSeconds + 's', 'info');
+
+      // Parse value — may be plain status or JSON summary
+      let displayVerdict = data.value || '—';
+      let logMsg = 'Redis → ' + data.value + '  TTL=' + data.ttlSeconds + 's';
+      try {
+        if (data.value && data.value.startsWith('{')) {
+          const parsed = JSON.parse(data.value);
+          displayVerdict = parsed.verdict || parsed.status || data.value;
+          logMsg = 'Redis → status=' + (parsed.status||'?') +
+                   '  verdict=' + (parsed.verdict||'?') +
+                   '  score=' + (parsed.score !== undefined ? parsed.score : '?') +
+                   '  runtime=' + (parsed.totalRuntimeMs !== undefined ? parsed.totalRuntimeMs+'ms' : '?') +
+                   '  TTL=' + data.ttlSeconds + 's';
+        }
+      } catch(e) { /* keep raw */ }
+
+      slog('[REST Poll #' + restPollChecks + '] ' + logMsg, 'info');
       // keep right panel table in sync
       document.getElementById('redisExecId').value = eid;
-      const tbody = document.getElementById('redisTbody');
-      const ttlColor = data.ttlSeconds < 60 ? 'color:#f87171' : 'color:#4ec9b0';
-      tbody.innerHTML = '<tr><td>' + escHtml(data.key) + '</td>' +
-        '<td><span class="badge ' + escHtml(data.value) + '">' + escHtml(data.value) + '</span></td>' +
-        '<td style="' + ttlColor + '">' + data.ttlSeconds + 's</td></tr>';
-      if (data.value && data.value !== '—') setVerdict(data.value);
-      if (FINAL_VERDICTS.has(data.value)) {
-        slog('Final verdict: ' + data.value + ' — REST poll stopped', 'ok');
+      await inspectRedis();
+      if (displayVerdict && displayVerdict !== '—') setVerdict(displayVerdict);
+      if (FINAL_VERDICTS.has(displayVerdict)) {
+        slog('Final verdict: ' + displayVerdict + ' — REST poll stopped', 'ok');
         stopRestPoll();
       }
     } catch(e) { slog('REST poll error: ' + e, 'err'); }
@@ -411,7 +423,7 @@ let pollChecks = 0;
 
 function resetRedisTbody() {
   document.getElementById('redisTbody').innerHTML =
-    '<tr><td colspan="3" class="dim">— cleared —</td></tr>';
+    '<tr><td colspan="6" class="dim">— cleared —</td></tr>';
 }
 
 function togglePoll() {
@@ -434,11 +446,18 @@ function startPoll() {
     pollChecks++;
     document.getElementById('pollCount').textContent = pollChecks;
     await inspectRedis();
-    // read last rendered value from the badge
-    const badge = document.querySelector('#redisTbody .badge');
-    if (badge && FINAL_VERDICTS.has(badge.textContent.trim())) {
-      ilog('Final verdict received: ' + badge.textContent.trim() + ' — stopping poll', 'ok');
-      stopPoll();
+    // Check the verdict badge (3rd td = index 2) for a terminal verdict
+    const row = document.querySelector('#redisTbody tr');
+    if (row) {
+      const verdictBadge = row.cells[2] && row.cells[2].querySelector('.badge');
+      const statusBadge  = row.cells[1] && row.cells[1].querySelector('.badge');
+      const verdictText  = verdictBadge ? verdictBadge.textContent.trim() : '';
+      const statusText   = statusBadge  ? statusBadge.textContent.trim()  : '';
+      const check = FINAL_VERDICTS.has(verdictText) ? verdictText : (FINAL_VERDICTS.has(statusText) ? statusText : null);
+      if (check) {
+        ilog('Final verdict received: ' + check + ' — stopping poll', 'ok');
+        stopPoll();
+      }
     }
     if (pollChecks >= 60) { // safety: stop after 60s
       stopPoll();
@@ -461,13 +480,35 @@ async function inspectRedis() {
     const data = await res.json();
     const tbody = document.getElementById('redisTbody');
     const ttlColor = data.ttlSeconds < 60 ? 'color:#f87171' : 'color:#4ec9b0';
+
+    // data.value may be a plain status string ("PENDING","PROCESSING") or a JSON summary
+    let status = data.value || '—';
+    let verdict = '—', score = '—', runtime = '—';
+    let verdictForBadge = '';
+    try {
+      if (data.value && data.value.startsWith('{')) {
+        const parsed = JSON.parse(data.value);
+        status  = parsed.status  || status;
+        verdict = parsed.verdict || '—';
+        score   = parsed.score   !== undefined ? parsed.score : '—';
+        runtime = parsed.totalRuntimeMs !== undefined ? parsed.totalRuntimeMs + ' ms' : '—';
+        verdictForBadge = verdict;
+      } else {
+        verdictForBadge = status;
+      }
+    } catch(e) { /* keep raw */ }
+
     tbody.innerHTML =
       '<tr>' +
-        '<td>' + escHtml(data.key) + '</td>' +
-        '<td><span class="badge ' + escHtml(data.value) + '">' + escHtml(data.value) + '</span></td>' +
+        '<td style="font-size:10px">' + escHtml(data.key) + '</td>' +
+        '<td><span class="badge ' + escHtml(status) + '">' + escHtml(status) + '</span></td>' +
+        '<td><span class="badge ' + escHtml(verdict) + '">' + escHtml(verdict) + '</span></td>' +
+        '<td>' + escHtml(String(score)) + '</td>' +
+        '<td>' + escHtml(String(runtime)) + '</td>' +
         '<td style="' + ttlColor + '">' + data.ttlSeconds + 's</td>' +
       '</tr>';
-    if (data.value !== '—') setVerdict(data.value);
+
+    if (verdictForBadge && verdictForBadge !== '—') setVerdict(verdictForBadge);
   } catch(e) { ilog('Redis check failed: ' + e, 'err'); }
 }
 

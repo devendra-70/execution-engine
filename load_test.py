@@ -21,7 +21,7 @@ from collections import Counter
 # ─────────────────────────── CONFIG ───────────────────────────
 BASE_URL             = "http://localhost:8080"
 
-BATCH_SIZE           = 50   # requests fired per wave  (30 req/s burst)
+BATCH_SIZE           = 50  # requests fired per wave  (30 req/s burst)
 CONCURRENCY          = 50   # parallel workers (= number of virtual users)
 DELAY_BETWEEN_WAVES  = 1     # 1s pause between waves → ~30 req/s sustained burst rate
 POLL_CONTAINER_TRACE = True  # show which sandbox container handled each execution
